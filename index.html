@@ -39,15 +39,16 @@
             padding: 0;
         }
 
+          /* ===== Background Image Cover (Assuming 'index.jpg' exists) ===== */
         body {
-            font-family: 'Open Sans', sans-serif;
-            background-color: var(--light-bg);
+            font-family: 'Poppins', 'Open Sans', sans-serif;
+            background: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)),
+                /* Image of smart city traffic management */
+                url('Photoes/index.jpg') center/cover no-repeat fixed;
             color: var(--text-color);
-            scroll-behavior: smooth;
-            background-image: url('photoes/index.jpg');
-            background-attachment: fixed;
-            background-size: cover;
-            background-position: center center;
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
 
         /* Sidebar Styles */
