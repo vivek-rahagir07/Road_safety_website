@@ -364,13 +364,17 @@
             text-align: center;
             padding: 60px 0 20px;
             position: relative;
-            /* ----------------------------------------------- */
-            /* --- OPTION FOR BACKGROUND IMAGE ADDING HERE --- */
-            /* ----------------------------------------------- */
-            background-image: url('photoes/image.jpeg');
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
+        }
+            /* ===== Background Image Cover (Assuming 'index.jpg' exists) ===== */
+        body {
+            font-family: 'Poppins', 'Open Sans', sans-serif;
+            background: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)),
+                /* Image of smart city traffic management */
+                url('Photoes/image.jpeg') center/cover no-repeat fixed;
+            color: var(--text-color);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
         }
     </style>
 </head>
