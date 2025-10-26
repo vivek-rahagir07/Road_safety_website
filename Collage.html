@@ -289,17 +289,18 @@
         margin-right: auto;
       }
     }
-  /* ===== Background Image Cover (Assuming 'index.jpg' exists) ===== */
-        body {
-            font-family: 'Poppins', 'Open Sans', sans-serif;
-            background: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)),
-                /* Image of smart city traffic management */
-                url('Photoes/index.jpg') center/cover no-repeat fixed;
-            color: var(--text-color);
-            line-height: 1.6;
-            min-height: 100vh;
-            overflow-x: hidden;
-        }
+
+    /* ===== Background Image Cover (Assuming 'index.jpg' exists) ===== */
+    body {
+      font-family: 'Poppins', 'Open Sans', sans-serif;
+      background: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)),
+        /* Image of smart city traffic management */
+        url('Photoes/index.jpg') center/cover no-repeat fixed;
+      color: var(--text-color);
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
   </style>
 </head>
 
@@ -440,12 +441,11 @@
             <video src="Vedios/Winter Roads.mp4" controls loop muted></video>
             <div class="caption">Winter Driving Safety</div>
           </div>
-          <div class="slide" onclick="openModal(this)" data-type="iframe"
-            data-src="Vedios/conclusion.mp4"
+          <div class="slide" onclick="openModal(this)" data-type="iframe" data-src="Vedios/conclusion.mp4"
             data-caption="Revolution In Road safety">
-            <iframe src="Vedios/conclusion.mp4" frameborder="0" allowfullscreen
-              style="width: 100%; height: 100%;"></iframe>
-            <div class="caption">External YouTube Lesson</div>
+            <vedio src="Vedios/conclusion.mp4" controls loop muted></vedio>
+
+            <div class="caption">Revolution In Road safety</div>
           </div>
         </div>
         <button class="arrow next" onclick="moveSlide('slider2', 1)">❯</button>
@@ -593,7 +593,7 @@
         video.pause();
       }
       if (iframe) {
-        
+
         modalMediaContainer.innerHTML = '';
       }
 
