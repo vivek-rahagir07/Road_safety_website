@@ -405,10 +405,10 @@
             <video src="Vedios/safety.mp4" controls loop muted></video>
             <div class="caption">Safety Tip: Speed Limits</div>
           </div>
-          <div class="slide" onclick="openModal(this)" data-type="video" data-src="Vedios/vedio3.mp4"
+          <div class="slide" onclick="openModal(this)" data-type="video" data-src="Vedios/survey.mp4"
             data-caption="Campaign Highlight">
-            <video src="Vedios/vedio3.mp4" controls loop muted></video>
-            <div class="caption">Campaign Highlight</div>
+            <video src="Vedios/survey.mp4" controls loop muted></video>
+            <div class="caption">Survey Highlight</div>
           </div>
           <div class="slide" onclick="openModal(this)" data-type="video" data-src="Vedios/padestrain safety.mp4"
             data-caption="Pedestrian Safety">
@@ -441,9 +441,9 @@
             <div class="caption">Winter Driving Safety</div>
           </div>
           <div class="slide" onclick="openModal(this)" data-type="iframe"
-            data-src="https://www.youtube.com/embed/9bZkp7q19f0?rel=0&autoplay=1"
-            data-caption="External YouTube Lesson">
-            <iframe src="https://www.youtube.com/embed/9bZkp7q19f0?rel=0" frameborder="0" allowfullscreen
+            data-src="Vedios/conclusion.mp4"
+            data-caption="Revolution In Road safety">
+            <iframe src="Vedios/conclusion.mp4" frameborder="0" allowfullscreen
               style="width: 100%; height: 100%;"></iframe>
             <div class="caption">External YouTube Lesson</div>
           </div>
@@ -593,9 +593,7 @@
         video.pause();
       }
       if (iframe) {
-        // Find the original src from the data-src attribute of the slide, remove autoplay=1
-        // Note: Since we don't have the original slide here, the safest way to stop playback 
-        // in an iframe is to wipe the container's content.
+        
         modalMediaContainer.innerHTML = '';
       }
 
@@ -666,7 +664,7 @@
           <li><a href="Road-safety-handbook.pdf" class="footer-link">Traffic Rules Handbook</a></li>
           <li><a href="/events" class="footer-link">Upcoming Safety Events</a></li>
           <li><a href="/blog" class="footer-link">Safety Blog</a></li>
-          <li><a href="/join" class="footer-link">Join Our Volunteer Team</a></li>
+          <li><a href="https://forms.gle/FMU1T9a7ceidKMmVA" class="footer-link">Join Our Volunteer Team</a></li>
         </ul>
 
         <div style="margin-top: 20px;">

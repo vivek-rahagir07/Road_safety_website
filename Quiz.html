@@ -24,7 +24,6 @@
         body {
             font-family: 'Poppins', sans-serif;
             margin: 0;
-            background: var(--bg-gradient);
             color: var(--text-color-light);
             display: flex;
             flex-direction: column;
@@ -34,12 +33,25 @@
             text-align: center;
             padding: 60px 0 20px;
             position: relative;
+        }
+        
+        /* Blurred background image layer */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('photoes/image.jpeg');
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
-            /* Note: The original image URL 'photoes/image.jpeg' is a local path and won't display.
-               I've kept the properties but removed the non-working URL. */
+            background-repeat: no-repeat;
+            opacity: 1;
+            z-index: -2;
         }
+        
 
         header {
             position: fixed;
@@ -75,7 +87,6 @@
             color: var(--text-color-dark);
         }
 
-        /* Override h2, h3, etc. inside container to use dark text color */
         .container h2,
         .container h3,
         .container p {
@@ -98,7 +109,6 @@
             display: none !important;
         }
 
-        /* --- INSTRUCTION STYLES --- */
         #instruction-section h2 {
             margin-top: 0;
             font-size: 1.6rem;
@@ -157,7 +167,6 @@
             background-color: #ffc43d !important;
         }
 
-        /* --- QUIZ & RESULT STYLES --- */
         #quiz-section,
         #result-section {
             color: var(--text-color-dark);
@@ -208,7 +217,6 @@
             color: var(--text-color-dark);
         }
 
-        /* Language Toggle Positioning */
         #langToggle {
             position: fixed;
             top: 15px;
@@ -228,7 +236,6 @@
             max-width: fit-content;
         }
 
-        /* Progress Bar and Timer Container Styling */
         #progress-container {
             display: flex;
             align-items: center;
@@ -351,25 +358,108 @@
             }
         }
 
-        body {
+        /* Footer Styles */
+        .footer-main {
+            background-color: #1a1a1a;
+            color: #fff;
+            padding: 50px 0;
             font-family: 'Poppins', sans-serif;
-            margin: 0;
-            background: var(--bg-gradient);
-            color: var(--text-color-light);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            text-align: center;
-            padding: 60px 0 20px;
-            position: relative;
+            margin-top: 40px;
         }
-        body {
-  background: linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)),
-              url('photoes/image.jpeg') center/cover no-repeat fixed;
-}
 
+        .footer-content {
+            max-width: 1200px;
+            margin: auto;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            gap: 40px;
+            padding: 0 20px;
+        }
+
+        .footer-section {
+            flex: 1;
+            min-width: 280px;
+            margin-bottom: 20px;
+        }
+
+        .footer-section h3 {
+            color: #ffcc00;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+        }
+
+        .footer-section h3 span {
+            margin-right: 10px;
+        }
+
+        .footer-section p {
+            line-height: 1.6;
+            color: #fff;
+        }
+
+        .back-to-top-btn {
+            margin-top: 25px;
+            padding: 12px 25px;
+            background-color: #ffcc00;
+            border: none;
+            color: #1a1a1a;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .back-to-top-btn:hover {
+            background-color: #e6b800;
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .footer-link {
+            color: #fff;
+            text-decoration: none;
+            transition: color 0.3s, transform 0.3s;
+            display: inline-block;
+        }
+
+        .footer-link:hover {
+            color: #ffcc00;
+            transform: translateX(5px);
+        }
+
+        .contact-list-link {
+            padding-left: 20px;
+        }
+
+        .social-icon {
+            color: #fff;
+            font-size: 24px;
+            margin-right: 15px;
+            display: inline-block;
+            transition: transform 0.3s, color 0.3s;
+            text-decoration: none;
+        }
+
+        .social-icon:hover {
+            color: #ffcc00;
+            transform: translateY(-5px) scale(1.1);
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 25px;
+            border-top: 1px solid #444;
+            margin-top: 50px;
+        }
+
+        .email-link::before {
+            content: '📧 ';
+            color: #ffcc00;
+        }
     </style>
 </head>
 
@@ -427,7 +517,6 @@
         <div id="scoreDisplaySmall">Score: 0</div>
         <div id="lives">❤️ Lives: 2</div>
 
-        <!-- NEW PROGRESS BAR CONTAINER -->
         <div id="progress-container">
             <div id="timer-clock"><span class="time-value">30s</span></div>
             <div id="progress-bar-shell">
@@ -435,7 +524,6 @@
             </div>
             <div id="progress-text">Q 1/10</div>
         </div>
-        <!-- END NEW PROGRESS BAR CONTAINER -->
 
         <h3 id="question">Question text</h3>
         <div id="options"></div>
@@ -452,7 +540,6 @@
 
     <script>
         const questionBank = [
-                       /* --- Original 20 Easy Questions --- */
             { difficulty: "Easy", en: { q: "Red traffic light means?", options: ["Stop", "Go", "Caution"], answer: "Stop" }, hi: { q: "लाल ट्रैफिक लाइट का मतलब?", options: ["रुकें", "जाओ", "सावधान"], answer: "रुकें" } },
             { difficulty: "Easy", en: { q: "Green light indicates?", options: ["Go", "Stop", "Wait"], answer: "Go" }, hi: { q: "हरा लाइट क्या दर्शाता?", options: ["जाओ", "रुको", "प्रतीक्षा करें"], answer: "जाओ" } },
             { difficulty: "Easy", en: { q: "Wear while riding two-wheeler?", options: ["Slippers", "Helmet", "Cap"], answer: "Helmet" }, hi: { q: "दो-पहिए वाहन चलाते समय क्या पहनें?", options: ["चप्पल", "हेलमेट", "टोपी"], answer: "हेलमेट" } },
@@ -472,8 +559,6 @@
             { difficulty: "Easy", en: { q: "Railway crossing without barrier?", options: ["Stop/look/listen", "Speed up", "Honk"], answer: "Stop/look/listen" }, hi: { q: "रेलवे क्रॉसिंग पर बिना बैरियर?", options: ["रुको/देखो/सुनो", "तेज़ चलाओ", "हॉर्न बजाओ"], answer: "रुको/देखो/सुनो" } },
             { difficulty: "Easy", en: { q: "Footpath use?", options: ["Walk", "Drive", "Park"], answer: "Walk" }, hi: { q: "फुटपाथ का उपयोग?", options: ["चलना", "ड्राइव", "पार्क"], answer: "चलना" } },
             { difficulty: "Easy", en: { q: "Seatbelt importance?", options: ["Safety", "Fashion", "Comfort"], answer: "Safety" }, hi: { q: "सीटबेल्ट का महत्व?", options: ["सुरक्षा", "फैशन", "आराम"], answer: "सुरक्षा" } },
-
-            /* --- NEW 10 Easy Questions --- */
             { difficulty: "Easy", en: { q: "When should you use your headlights during the day?", options: ["In rain/fog/low light", "Never", "Only on highways"], answer: "In rain/fog/low light" }, hi: { q: "दिन के दौरान हेडलाइट्स का उपयोग कब करना चाहिए?", options: ["बारिश/धुंध/कम रोशनी में", "कभी नहीं", "केवल हाईवे पर"], answer: "बारिश/धुंध/कम रोशनी में" } },
             { difficulty: "Easy", en: { q: "What does a 'Give Way' sign mean?", options: ["Stop completely", "Speed up", "Slow down and yield to traffic"], answer: "Slow down and yield to traffic" }, hi: { q: "रास्ता दें' संकेत का क्या मतलब है?", options: ["पूरी तरह रुकें", "गति बढ़ाएँ", "धीमा करें और ट्रैफिक को रास्ता दें"], answer: "धीमा करें और ट्रैफिक को रास्ता दें" } },
             { difficulty: "Easy", en: { q: "What color is the light for reversing a car?", options: ["Red", "White", "Yellow"], answer: "White" }, hi: { q: "कार को रिवर्स करने के लिए लाइट का रंग क्या है?", options: ["लाल", "सफ़ेद", "पीला"], answer: "सफ़ेद" } },
@@ -485,8 +570,6 @@
             { difficulty: "Easy", en: { q: "When should you NOT change lanes?", options: ["Before a junction", "On a straight road", "When traffic is light"], answer: "Before a junction" }, hi: { q: "आपको लेन कब नहीं बदलनी चाहिए?", options: ["जंक्शन से पहले", "सीधी सड़क पर", "जब ट्रैफिक हल्का हो"], answer: "जंक्शन से पहले" } },
             { difficulty: "Easy", en: { q: "What should you carry with you while driving?", options: ["Driving License", "Photo ID", "Cash"], answer: "Driving License" }, hi: { q: "गाड़ी चलाते समय आपको अपने पास क्या रखना चाहिए?", options: ["ड्राइविंग लाइसेंस", "फोटो पहचान पत्र", "नकद"], answer: "ड्राइविंग लाइसेंस" } },
 
-
-            /* --- Original 20 Medium Questions --- */
             { difficulty: "Medium", en: { q: "Maximum speed in city?", options: ["30km/h", "50km/h", "70km/h"], answer: "50km/h" }, hi: { q: "शहर में अधिकतम गति?", options: ["30km/h", "50km/h", "70km/h"], answer: "50km/h" } },
             { difficulty: "Medium", en: { q: "Drunk driving limit?", options: ["0.03%", "0.08%", "0.2%"], answer: "0.03%" }, hi: { q: "शराब पीकर वाहन चलाने की सीमा?", options: ["0.03%", "0.08%", "0.2%"], answer: "0.03%" } },
             { difficulty: "Medium", en: { q: "Helmets for pillion rider?", options: ["Mandatory", "Optional", "Not needed"], answer: "Mandatory" }, hi: { q: "पिलियन सवारी के लिए हेलमेट?", options: ["अनिवार्य", "वैकल्पिक", "ज़रूरत नहीं"], answer: "अनिवार्य" } },
@@ -507,8 +590,6 @@
             { difficulty: "Medium", en: { q: "Overtaking on hill?", options: ["No", "Yes", "Depends"], answer: "No" }, hi: { q: "पहाड़ी पर ओवरटेक?", options: ["नहीं", "हाँ", "निर्भर करता है"], answer: "नहीं" } },
             { difficulty: "Medium", en: { q: "Rainy road caution?", options: ["Slow down", "Speed up", "No change"], answer: "Slow down" }, hi: { q: "बारिश में सड़क सावधानी?", options: ["धीरे चलें", "तेज़ चलाएं", "कोई बदलाव नहीं"], answer: "धीरे चलें" } },
             { difficulty: "Medium", en: { q: "Horn limit in city?", options: ["Short beeps", "Continuous", "None"], answer: "Short beeps" }, hi: { q: "शहर में हॉर्न की सीमा?", options: ["छोटे बीप", "लगातार", "कोई नहीं"], answer: "छोटे बीप" } },
-
-            /* --- NEW 10 Medium Questions --- */
             { difficulty: "Medium", en: { q: "What is hydroplaning?", options: ["Skidding due to oil", "Tires riding on a film of water", "Engine overheating"], answer: "Tires riding on a film of water" }, hi: { q: "हाइड्रोप्लानिंग क्या है?", options: ["तेल के कारण फिसलना", "टायरों का पानी की पतली परत पर चलना", "इंजन का गर्म होना"], answer: "टायरों का पानी की पतली परत पर चलना" } },
             { difficulty: "Medium", en: { q: "What is the ideal distance to maintain from a braking vehicle?", options: ["1 car length", "2 second rule", "5 meter rule"], answer: "2 second rule" }, hi: { q: "ब्रेक लगाने वाले वाहन से कितनी आदर्श दूरी बनाए रखनी चाहिए?", options: ["1 कार की लंबाई", "2 सेकंड का नियम", "5 मीटर का नियम"], answer: "2 सेकंड का नियम" } },
             { difficulty: "Medium", en: { q: "You see an injured animal on the road. What is the first priority?", options: ["Get help", "Ignore it", "Move the animal immediately"], answer: "Get help" }, hi: { q: "आपने सड़क पर एक घायल जानवर देखा। पहली प्राथमिकता क्या है?", options: ["मदद के लिए बुलाओ", "अनदेखा करो", "जानवर को तुरंत हटाओ"], answer: "मदद के लिए बुलाओ" } },
@@ -516,12 +597,10 @@
             { difficulty: "Medium", en: { q: "Maximum speed limit near schools or hospitals in most cities?", options: ["60 km/h", "25 km/h", "40 km/h"], answer: "25 km/h" }, hi: { q: "अधिकांश शहरों में स्कूलों या अस्पतालों के पास अधिकतम गति सीमा?", options: ["60 किमी/घंटा", "25 किमी/घंटा", "40 किमी/घंटा"], answer: "25 किमी/घंटा" } },
             { difficulty: "Medium", en: { q: "What is the correct hand signal for 'Slowing Down'?", options: ["Right arm straight out", "Right arm bent down", "Left arm bent up"], answer: "Right arm bent down" }, hi: { q: "धीमा करने' के लिए सही हाथ का संकेत क्या है?", options: ["दाहिनी भुजा सीधी", "दाहिनी भुजा नीचे झुकी हुई", "बायीं भुजा ऊपर झुकी हुई"], answer: "दाहिनी भुजा नीचे झुकी हुई" } },
             { difficulty: "Medium", en: { q: "A dashed yellow line next to a solid white line means?", options: ["Overtaking allowed from solid side", "Overtaking allowed from dashed side", "No overtaking"], answer: "Overtaking allowed from dashed side" }, hi: { q: "एक ठोस सफेद रेखा के बगल में एक टूटी हुई पीली रेखा का क्या मतलब है?", options: ["ठोस तरफ से ओवरटेक की अनुमति", "टूटी हुई तरफ से ओवरटेक की अनुमति", "ओवरटेक नहीं"], answer: "टूटी हुई तरफ से ओवरटेक की अनुमति" } },
-            { difficulty: "Medium", en: { q: "When must you stop for an ambulance with flashing lights?", options: ["Only if it’s on your side", "When lights are red", "Always, regardless of traffic light"], answer: "Always, regardless of traffic light" }, hi: { q: "चमकती लाइट वाली एम्बुलेंस के लिए आपको कब रुकना होगा?", options: ["केवल अगर यह आपकी तरफ हो", "जब लाइट लाल हो", "हमेशा, ट्रैफिक लाइट की परवाह किए बिना"], answer: "हमेशा, ट्रैफिक लाइट की परवाह किए बिना" } },
+            { difficulty: "Medium", en: { q: "When must you stop for an ambulance with flashing lights?", options: ["Only if it's on your side", "When lights are red", "Always, regardless of traffic light"], answer: "Always, regardless of traffic light" }, hi: { q: "चमकती लाइट वाली एम्बुलेंस के लिए आपको कब रुकना होगा?", options: ["केवल अगर यह आपकी तरफ हो", "जब लाइट लाल हो", "हमेशा, ट्रैफिक लाइट की परवाह किए बिना"], answer: "हमेशा, ट्रैफिक लाइट की परवाह किए बिना" } },
             { difficulty: "Medium", en: { q: "What does the term 'Pinch Point' usually refer to in traffic?", options: ["Where two lanes merge", "A sharp bend", "A police checkpoint"], answer: "Where two lanes merge" }, hi: { q: "ट्रैफिक में 'पिंच पॉइंट' शब्द का तात्पर्य आमतौर पर किससे है?", options: ["जहां दो लेन विलीन होती हैं", "एक तीखा मोड़", "एक पुलिस चौकी"], answer: "जहां दो लेन विलीन होती हैं" } },
             { difficulty: "Medium", en: { q: "What is the risk associated with driving with worn-out tires?", options: ["Reduced fuel economy", "Increased puncture risk", "Reduced grip and poor braking"], answer: "Reduced grip and poor braking" }, hi: { q: "घिसे हुए टायरों के साथ गाड़ी चलाने का जोखिम क्या है?", options: ["कम ईंधन दक्षता", "बढ़ा हुआ पंचर जोखिम", "कम पकड़ और ख़राब ब्रेकिंग"], answer: "कम पकड़ और ख़राब ब्रेकिंग" } },
 
-
-            /* --- Original 20 Hard Questions --- */
             { difficulty: "Hard", en: { q: "Safe distance formula?", options: ["Speed x 2", "Speed/2", "Speed+2"], answer: "Speed x 2" }, hi: { q: "सुरक्षित दूरी का सूत्र?", options: ["Speed x 2", "Speed/2", "Speed+2"], answer: "Speed x 2" } },
             { difficulty: "Hard", en: { q: "Alcohol effect threshold?", options: ["0.03%", "0.05%", "0.08%"], answer: "0.03%" }, hi: { q: "शराब का प्रभाव सीमा?", options: ["0.03%", "0.05%", "0.08%"], answer: "0.03%" } },
             { difficulty: "Hard", en: { q: "ABS function?", options: ["Prevent skidding", "Stop car", "Increase speed"], answer: "Prevent skidding" }, hi: { q: "ABS का कार्य?", options: ["स्किडिंग रोकना", "कार रोकना", "गति बढ़ाना"], answer: "स्किडिंग रोकना" } },
@@ -541,14 +620,13 @@
             { difficulty: "Hard", en: { q: "Road rage prevention?", options: ["Stay calm", "Honk continuously", "Overtake"], answer: "Stay calm" }, hi: { q: "रोड रेज़ रोकथाम?", options: ["शांत रहें", "लगातार हॉर्न", "ओवरटेक"], answer: "शांत रहें" } },
             { difficulty: "Hard", en: { q: "Rainy road accident prevention?", options: ["Slow & careful", "Fast", "Ignore"], answer: "Slow & careful" }, hi: { q: "बारिश में दुर्घटना रोकथाम?", options: ["धीरे और सावधानीपूर्वक", "तेज़", "अनदेखा करें"], answer: "धीरे और सावधानीपूर्वक" } },
             { difficulty: "Hard", en: { q: "AI traffic system benefits?", options: ["Optimize flow", "Ignore", "Confuse"], answer: "Optimize flow" }, hi: { q: "AI ट्रैफिक सिस्टम लाभ?", options: ["प्रवाह अनुकूलन", "अनदेखा", "भ्रमित"], answer: "प्रवाह अनुकूलन" } },
-
-            /* --- NEW 10 Hard Questions (Completed) --- */
             { difficulty: "Hard", en: { q: "According to the Motor Vehicles Act, which document is essential for insurance claim processing?", options: ["PUC Certificate", "First Aid Box", "FIR Report"], answer: "FIR Report" }, hi: { q: "मोटर वाहन अधिनियम के अनुसार, बीमा दावा प्रसंस्करण के लिए कौन सा दस्तावेज़ आवश्यक है?", options: ["पीयूसी प्रमाणपत्र", "प्राथमिक चिकित्सा बॉक्स", "एफआईआर रिपोर्ट"], answer: "एफआईआर रिपोर्ट" } },
             { difficulty: "Hard", en: { q: "The primary reason for not using hazard lights while driving in heavy rain is:", options: ["Confuses other drivers", "Drains the battery", "It is illegal everywhere"], answer: "Confuses other drivers" }, hi: { q: "भारी बारिश में गाड़ी चलाते समय खतरे की लाइट का उपयोग न करने का प्राथमिक कारण है:", options: ["अन्य ड्राइवरों को भ्रमित करता है", "बैटरी खत्म करता है", "यह हर जगह अवैध है"], answer: "अन्य ड्राइवरों को भ्रमित करता है" } },
             { difficulty: "Hard", en: { q: "What is the purpose of the 'PUC' (Pollution Under Control) certificate?", options: ["Check fuel type", "Check vehicle speed", "Check exhaust emissions"], answer: "Check exhaust emissions" }, hi: { q: "पीयूसी' (प्रदूषण नियंत्रण में) प्रमाणपत्र का उद्देश्य क्या है?", options: ["ईंधन का प्रकार जांचना", "वाहन की गति जांचना", "निकास उत्सर्जन जांचना"], answer: "निकास उत्सर्जन जांचना" } },
             { difficulty: "Hard", en: { q: "What is 'tailgating'?", options: ["Driving too close behind another vehicle", "Following a large truck", "Using the tailgate for storage"], answer: "Driving too close behind another vehicle" }, hi: { q: "टेलगेटिंग क्या है?", options: ["दूसरे वाहन के बहुत करीब चलाना", "एक बड़े ट्रक का पीछा करना", "भंडारण के लिए टेलगेट का उपयोग करना"], answer: "दूसरे वाहन के बहुत करीब चलाना" } },
-            { difficulty: "Hard", en: { q: "What is the maximum penalty for not stopping after an accident?", options: ["License suspension for 6 months", "License cancellation and jail time", "A heavy fine only"], answer: "License cancellation and jail time" }, hi: { q: "दुर्घटना के बाद न रुकने पर अधिकतम दंड क्या है?", options: ["6 महीने के लिए लाइसेंस निलंबन", "लाइसेंस रद्द और जेल की सज़ा", "केवल भारी जुर्माना"], answer: "लाइसेंस रद्द और जेल की सज़ा" } },
+            { difficulty: "Hard", en: { q: "What is the maximum penalty for not stopping after an accident?", options: ["License suspension for 6 months", "License cancellation and jail time", "A heavy fine only"], answer: "License cancellation and jail time" }, hi: { q: "दुर्घटना के बाद न रुकने पर अधिकतम दंड क्या है?", options: ["6 महीने के लिए लाइसेंस निलंबन", "लाइसेंस रद्द और जेल की सज़ा", "केवल भारी जुर्माना"], answer: "लाइसेंस रद्द और जेल की सज़ा" } }
         ];
+
         const QUIZ_LENGTH = 10, TIME_LIMIT = 30;
         let quizQuestions = [], currentQuestionIndex = 0, score = 0, lives = 2, language = 'en', timerInterval, currentTime = TIME_LIMIT;
 
@@ -570,7 +648,6 @@
             hiInst: document.getElementById('hi-instructions'),
             instTitle: document.getElementById('instruction-title'),
             startBtn: document.getElementById('startBtnText'),
-            // NEW ELEMENTS FOR PROGRESS
             progFill: document.getElementById('progress-bar-fill'),
             progText: document.getElementById('progress-text')
         };
@@ -608,7 +685,6 @@
             }
         };
 
-        // --- NEW FUNCTION: Fisher-Yates Shuffle Algorithm ---
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
@@ -642,7 +718,6 @@
             }
 
             if (!el.quiz.classList.contains('hidden') && currentQuestionIndex < quizQuestions.length) {
-                // Re-rendering options to reflect language change if a question is currently active
                 const qD = quizQuestions[currentQuestionIndex], q = qD[language];
                 el.q.textContent = q.q;
                 const oldBtns = [...el.opt.querySelectorAll('.option')];
@@ -656,7 +731,6 @@
                     btn.onclick = () => checkAnswer(opt, qD);
                     el.opt.appendChild(btn);
                 });
-                // Update feedback message language
                 const prevLang = language === 'en' ? 'hi' : 'en';
                 if (el.feedback.textContent === langContent[prevLang].correct) {
                     el.feedback.textContent = content.correct;
@@ -670,22 +744,15 @@
             }
         }
 
-        // --- NEW FUNCTION: Update Progress Bar and Text ---
         function updateProgress() {
             const totalQs = quizQuestions.length;
-            const completedQs = currentQuestionIndex; // Questions already answered/passed
-            
-            // Progress Bar Fill: 0% at start of Q1, 100% after last Q is answered
+            const completedQs = currentQuestionIndex;
             const progressPercent = (completedQs / totalQs) * 100;
             el.progFill.style.width = `${progressPercent}%`;
-
-            // Progress Text: shows Q 1/10 for the first question, Q 10/10 for the last
             const currentQNum = completedQs + 1;
-
             if (currentQNum <= totalQs) {
                 el.progText.textContent = `Q ${currentQNum}/${totalQs}`;
             } else {
-                // Display 10/10 when quiz is complete
                 el.progText.textContent = `Q ${totalQs}/${totalQs}`;
             }
         }
@@ -694,16 +761,11 @@
 
         function startQuiz() {
             score = 0; lives = 2; currentQuestionIndex = 0;
-
-            // 1. Randomize the question bank
             const shuffledBank = shuffleArray([...questionBank]);
-            // 2. Select the first QUIZ_LENGTH questions
             quizQuestions = shuffledBank.slice(0, QUIZ_LENGTH);
-            
             el.instruction.classList.add('hidden');
             el.result.classList.add('hidden');
             el.quiz.classList.remove('hidden');
-            
             updateUI(); 
             loadQuestion();
         }
@@ -727,14 +789,11 @@
             if (currentQuestionIndex >= quizQuestions.length) {
                 return endGame();
             }
-            
-            updateProgress(); // Update the progress bar display
+            updateProgress();
             el.feedback.textContent = '';
-            
             const q = quizQuestions[currentQuestionIndex][language];
             el.q.textContent = q.q;
             el.opt.innerHTML = '';
-            
             q.options.forEach(o => {
                 const btn = document.createElement('button');
                 btn.className = 'option';
@@ -742,7 +801,6 @@
                 btn.onclick = () => checkAnswer(o, quizQuestions[currentQuestionIndex]);
                 el.opt.appendChild(btn);
             });
-            
             el.skip.disabled = false; startTimer();
         }
 
@@ -756,7 +814,6 @@
             });
             const content = langContent[language];
             if (sel === ans) {
-                // Score includes difficulty points + bonus based on remaining time
                 score += difficultyPoints[qData.difficulty] + Math.floor((currentTime / TIME_LIMIT) * 10);
                 el.feedback.textContent = content.correct;
             }
@@ -765,7 +822,6 @@
                 el.feedback.textContent = content.wrong;
             }
             updateUI(); 
-            // After 1.5s delay, check if lives remain and move to the next question
             setTimeout(() => lives <= 0 ? endGame() : nextQ(), 1500);
         }
 
@@ -793,11 +849,8 @@
             clearInterval(timerInterval);
             el.quiz.classList.add('hidden');
             el.result.classList.remove('hidden');
-
-            // Force progress bar to 100% just before showing results
             currentQuestionIndex = quizQuestions.length; 
             updateProgress(); 
-            
             const content = langContent[language];
             el.bigScore.textContent = `${content.finalScore} ${score}`;
             el.result.querySelector('button').textContent = content.restart;
@@ -815,169 +868,50 @@
         };
     </script>
 
+    <footer class="footer-main">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3><span>🚦</span> Road Safety Club</h3>
+                <p>Our mission is to empower everyone with the knowledge to drive and walk safely. Join us in making roads safer for all!</p>
+                <button onclick="window.scrollTo({top:0, behavior:'smooth'});" class="back-to-top-btn">↑ Zoom Back Up!</button>
+            </div>
 
+            <div class="footer-section">
+                <h3>📞 Connect With Us</h3>
+                <ul style="list-style: none; padding: 0; line-height: 2;">
+                    <li><a href="mailto:info@roadsafetyclub.com" class="footer-link email-link">info@roadsafetyclub.com</a></li>
+                </ul>
+                <h4 style="color: #fff; margin-top: 15px; margin-bottom: 5px; font-weight: 600;">Team Contacts:</h4>
+                <ul style="list-style: none; padding: 0; line-height: 1.8;">
+                    <li><a href="tel:9996445592" class="footer-link contact-list-link"><strong>Vivek Yadav:</strong> 9996445592</a></li>
+                    <li><a href="tel:9251399133" class="footer-link contact-list-link"><strong>Shri ji Aggarwal:</strong> 9251399133</a></li>
+                    <li><a href="tel:9389864319" class="footer-link contact-list-link"><strong>Shreya Chaudhary:</strong> 9389864319</a></li>
+                    <li><a href="tel:7056123205" class="footer-link contact-list-link"><strong>Ekta Pannu:</strong> 7056123205</a></li>
+                    <li><a href="tel:9457057473" class="footer-link contact-list-link"><strong>Khush Raghav:</strong> 9457057473</a></li>
+                </ul>
+            </div>
 
-
-    <!-- footer -->
-<footer
-    style="background-color: var(--dark-bg); color: var(--light-text); padding: 50px 0; font-family: 'Poppins', sans-serif;">
-    <div
-        style="max-width: 1200px; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; padding: 0 20px;">
-
-        <div class="footer-section">
-            <h3
-                style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.5em; display: flex; align-items: center;">
-                <span style="margin-right: 10px;">🚦</span> Road Safety Club
-            </h3>
-            <p style="line-height: 1.6;">
-                Our mission is to empower everyone with the knowledge to drive and walk safely. Join us in making
-                roads safer
-                for all!
-            </p>
-
-            <button onclick="window.scrollTo({top:0, behavior:'smooth'});" class="back-to-top-btn"
-                style="margin-top: 25px; padding: 12px 25px; background-color: var(--accent-color); border: none; color: var(--dark-bg); font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                ↑ Zoom Back Up!
-            </button>
-        </div>
-
-        <div class="footer-section">
-            <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">📞 Connect With Us</h3>
-            <ul style="list-style: none; padding: 0; line-height: 2;">
-                <li><a href="mailto:info@roadsafetyclub.com" class="footer-link email-link">info@roadsafetyclub.com</a>
-                </li>
-            </ul>
-
-            <h4 style="color: var(--light-text); margin-top: 15px; margin-bottom: 5px; font-weight: 600;">Team
-                Contacts:</h4>
-            <ul style="list-style: none; padding: 0; line-height: 1.8;">
-                <li><a href="tel:9996445592" class="footer-link contact-list-link"><strong>Vivek Yadav:</strong>
-                        9996445592</a>
-                </li>
-                <li><a href="tel:9251399133" class="footer-link contact-list-link"><strong>Shri ji
-                            Aggarwal:</strong>
-                        9251399133</a></li>
-                <li><a href="tel:9389864319" class="footer-link contact-list-link"><strong>Shreya
-                            Chaudhary:</strong>
-                        9389864319</a></li>
-                <li><a href="tel:7056123205" class="footer-link contact-list-link"><strong>Ekta Pannu:</strong>
-                        7056123205</a>
-                </li>
-                <li><a href="tel:9457057473" class="footer-link contact-list-link"><strong>Khush Raghav:</strong>
-                        9457057473</a>
-                </li>
-            </ul>
-        </div>
-
-        <div class="footer-section">
-            <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">🔗 Quick Resources</h3>
-            <ul style="list-style: none; padding: 0; line-height: 2;">
-                <li><a href="Road-safety-handbook.pdf" class="footer-link">Traffic Rules Handbook</a></li>
-                <li><a href="/events" class="footer-link">Upcoming Safety Events</a></li>
-                <li><a href="/blog" class="footer-link">Safety Blog</a></li>
-                <li><a href="/join" class="footer-link">Join Our Volunteer Team</a></li>
-            </ul>
-
-            <div style="margin-top: 20px;">
-                <a href="#" class="social-icon" aria-label="Follow us on World Wide Web">🌐</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Facebook">📘</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Twitter">🐦</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Instagram">📸</a>
+            <div class="footer-section">
+                <h3>🔗 Quick Resources</h3>
+                <ul style="list-style: none; padding: 0; line-height: 2;">
+                    <li><a href="Road-safety-handbook.pdf" class="footer-link">Traffic Rules Handbook</a></li>
+                    <li><a href="/events" class="footer-link">Upcoming Safety Events</a></li>
+                    <li><a href="/blog" class="footer-link">Safety Blog</a></li>
+                    <li><a href="/join" class="footer-link">Join Our Volunteer Team</a></li>
+                </ul>
+                <div style="margin-top: 20px;">
+                    <a href="#" class="social-icon" aria-label="Follow us on World Wide Web">🌐</a>
+                    <a href="#" class="social-icon" aria-label="Follow us on Facebook">📘</a>
+                    <a href="#" class="social-icon" aria-label="Follow us on Twitter">🐦</a>
+                    <a href="#" class="social-icon" aria-label="Follow us on Instagram">📸</a>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div style="text-align: center; padding-top: 25px; border-top: 1px solid var(--border-color); margin-top: 50px;">
-        <p>&copy; 2025 Road Safety Club. Drive Smart, Live Safe.</p>
-    </div>
+        <div class="footer-bottom">
+            <p>&copy; 2025 Road Safety Club. Drive Smart, Live Safe.</p>
+        </div>
+    </footer>
 
-    <style>
-        /* CSS Variables for easy color changes */
-        :root {
-            --dark-bg: #1a1a1a;
-            --light-text: #fff;
-            --accent-color: #ffcc00;
-            /* Yellow */
-            --accent-hover: #e6b800;
-            --border-color: #444;
-        }
-
-        footer {
-            /* This ensures the font-family from the inline style is the starting point */
-            font-family: 'Poppins', Arial, sans-serif !important;
-        }
-
-        .footer-section {
-            flex: 1;
-            min-width: 280px;
-            margin-bottom: 20px;
-        }
-
-        /* General Link Styling */
-        .footer-link {
-            color: var(--light-text);
-            text-decoration: none;
-            transition: color 0.3s, transform 0.3s;
-            display: inline-block;
-        }
-
-        .footer-link:hover {
-            color: var(--accent-color);
-            transform: translateX(5px);
-            /* Subtle shift */
-        }
-
-        /* Team Contact List specific styling - removes the phone icon for this block */
-        .contact-list-link {
-            padding-left: 20px;
-            /* Indent slightly for visual hierarchy */
-        }
-
-        /* Social Icon Animation */
-        .social-icon {
-            color: var(--light-text);
-            font-size: 24px;
-            margin-right: 15px;
-            /* Use margin-right for spacing */
-            display: inline-block;
-            transition: transform 0.3s, color 0.3s;
-            text-decoration: none;
-        }
-
-        .social-icon:hover {
-            color: var(--accent-color);
-            transform: translateY(-5px) scale(1.1);
-            /* Lift and enlarge */
-        }
-
-        /* Back to Top Button hover */
-        .back-to-top-btn:hover {
-            background-color: var(--accent-hover);
-            transform: translateY(-3px) scale(1.02);
-            /* Lift and slightly enlarge */
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Clear focus state for accessibility */
-        .footer-link:focus,
-        .social-icon:focus,
-        .back-to-top-btn:focus {
-            outline: 2px solid var(--accent-color);
-            outline-offset: 3px;
-        }
-
-        /* Specific Link Icons (A friendlier touch) - Applied only to General/Email links */
-        .phone-link::before {
-            content: '📞 ';
-            color: var(--accent-color);
-        }
-
-        .email-link::before {
-            content: '📧 ';
-            color: var(--accent-color);
-        }
-    </style>
-</footer>
 </body>
-
 </html>
