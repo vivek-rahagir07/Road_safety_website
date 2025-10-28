@@ -2,21 +2,16 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Road Safety Awareness – Safe Return</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link
-        href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Playfair+Display:wght@400;700&display=swap"
-        rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
+    
     <style>
         :root {
             --primary-color: #ff4d4d;
@@ -31,6 +26,11 @@
             --footer-text: #fff;
             --footer-accent: #ffcc00;
             --footer-hover: #e6b800;
+            --dark-bg: #1a1a1a;
+            --light-text: #fff;
+            --accent-color: #ffcc00;
+            --accent-hover: #e6b800;
+            --border-color: #444;
         }
 
         * {
@@ -39,19 +39,29 @@
             padding: 0;
         }
 
-        /* ===== Background Image Cover (Assuming 'index.jpg' exists) ===== */
+        /* * ===========================================
+         * HERE IS THE BACKGROUND IMAGE FIX
+         * ===========================================
+        */
         body {
-            font-family: 'Poppins', 'Open Sans', sans-serif;
+            font-family: 'Open Sans', sans-serif;
+            
+            /* 1. Make sure your image (e.g., 'my-background.jpg') is inside the 'Photoes' folder.
+               2. Change 'your-background-image.jpg' below to match your image file name.
+            */
             background: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)),
-                /* Image of smart city traffic management */
                 url('Photoes/index.jpg') center/cover no-repeat fixed;
+            
+            
+            
             color: var(--text-color);
             line-height: 1.6;
             min-height: 100vh;
             overflow-x: hidden;
         }
+        /* =========================================== */
 
-        /* Sidebar Styles */
+
         .sidebar-toggle {
             position: fixed;
             top: 50%;
@@ -64,11 +74,17 @@
             cursor: pointer;
             z-index: 999;
             border-radius: 10px 0 0 10px;
-            font-size: 20px;
+            font-size: 16px;
+            font-weight: 600;
             box-shadow: -3px 0 10px rgba(0, 0, 0, 0.3);
             transition: all 0.3s ease;
             writing-mode: vertical-rl;
             text-orientation: mixed;
+        }
+        
+        .sidebar-toggle i {
+             margin-bottom: 8px;
+             display: block;
         }
 
         .sidebar-toggle:hover {
@@ -81,6 +97,7 @@
             top: 0;
             right: -400px;
             width: 400px;
+            max-width: 90%;
             height: 100vh;
             background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
             box-shadow: -5px 0 25px rgba(0, 0, 0, 0.3);
@@ -193,6 +210,10 @@
             gap: 5px;
             margin-top: 8px;
         }
+        
+        .event-date i {
+            color: var(--primary-color);
+        }
 
         .event-item {
             border-left: 4px solid var(--footer-accent);
@@ -219,7 +240,6 @@
             display: block;
         }
 
-        /* Professional Fixed Navbar */
         nav {
             position: fixed;
             top: 0;
@@ -287,6 +307,9 @@
             padding: 0.5em 0;
             font-weight: 600;
             transition: color 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.3em;
         }
 
         .nav-links a::after {
@@ -296,15 +319,21 @@
             height: 2px;
             background: var(--primary-color);
             transition: width 0.3s;
-            margin-top: 5px;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+        }
+        
+        .nav-links li:not(.dropdown) a:hover::after {
+            width: 100%;
         }
 
         .nav-links a:hover {
             color: var(--primary-color);
         }
 
-        .nav-links a:hover::after {
-            width: 100%;
+        .nav-links li.dropdown:hover > a {
+             color: var(--primary-color);
         }
 
         .dropdown-menu {
@@ -343,7 +372,7 @@
             background: rgba(255, 255, 255, 0.1);
         }
 
-        .nav-links li:hover .dropdown-menu {
+        .nav-links li.dropdown:hover .dropdown-menu {
             display: block;
         }
 
@@ -358,14 +387,26 @@
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
         }
 
-        header h1 {
+        header main h1 {
             font-family: 'Montserrat', sans-serif;
             font-size: clamp(2em, 4vw, 2.6em);
             margin-bottom: 0.5em;
             text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.5);
         }
 
-        header blockquote {
+        header main p {
+            font-size: 1.1em;
+            color: #f0f0f0;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+            margin-bottom: 1em;
+        }
+
+        header main figure {
+            margin: 0;
+            padding: 0;
+        }
+
+        header main figure blockquote {
             font-style: italic;
             font-size: 1.1em;
             margin: 1em auto 0;
@@ -468,7 +509,7 @@
         .edu-chevron {
             flex-shrink: 0;
             transition: transform var(--transition-speed) ease, color var(--transition-speed);
-            color: #ffffff;
+            color: #aaa;
         }
 
         .tip.active .tip-chevron,
@@ -494,6 +535,275 @@
         .edu-details.open {
             opacity: 1;
             padding: 0 1.5em 1.5em;
+        }
+
+        .community-box {
+            margin: 3em 0;
+            padding: 2.5em;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            text-align: center;
+            border: 2px solid var(--footer-accent);
+        }
+
+        .community-box h2 {
+            color: var(--secondary-color);
+            font-size: 2em;
+            margin-bottom: 0.5em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .community-box h2 i {
+            color: var(--footer-accent);
+        }
+
+        .community-box>p {
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 2em;
+            line-height: 1.7;
+        }
+
+        .registration-options {
+            display: flex;
+            gap: 2em;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .reg-card {
+            flex: 1;
+            min-width: 280px;
+            max-width: 400px;
+            background: white;
+            padding: 2em;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+
+        .reg-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+            border-color: var(--primary-color);
+        }
+
+        .reg-card.driver:hover {
+            border-color: #4CAF50;
+        }
+
+        .reg-card.emergency:hover {
+            border-color: var(--primary-color);
+        }
+
+        .reg-card-icon {
+            font-size: 4em;
+            margin-bottom: 0.5em;
+        }
+
+        .reg-card.driver .reg-card-icon {
+            color: #4CAF50;
+        }
+
+        .reg-card.emergency .reg-card-icon {
+            color: var(--primary-color);
+        }
+
+        .reg-card h3 {
+            font-size: 1.5em;
+            margin-bottom: 0.5em;
+            color: var(--secondary-color);
+        }
+
+        .reg-card p {
+            color: #666;
+            margin-bottom: 1.5em;
+            font-size: 0.95em;
+        }
+
+        .reg-btn {
+            padding: 12px 30px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .reg-btn:hover {
+            background: var(--hover-color);
+            transform: scale(1.05);
+        }
+
+        .reg-card.driver .reg-btn {
+            background: #4CAF50;
+        }
+
+        .reg-card.driver .reg-btn:hover {
+            background: #45a049;
+        }
+
+        .reg-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .reg-modal-overlay.active {
+            display: flex;
+        }
+
+        .reg-form-container {
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .reg-form-close {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 30px;
+            color: #999;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .reg-form-close:hover {
+            color: var(--primary-color);
+        }
+
+        .reg-form-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .reg-form-header h2 {
+            color: var(--secondary-color);
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        .reg-form-header p {
+            color: #666;
+            font-size: 1em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+
+        .form-group label i {
+            margin-right: 8px;
+            color: var(--primary-color);
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+            font-family: 'Open Sans', sans-serif;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 5px rgba(255, 77, 77, 0.3);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        .submit-btn:hover {
+            background: var(--hover-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 77, 77, 0.3);
+        }
+
+        .success-message {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .success-message i {
+            font-size: 4em;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        .success-message h3 {
+            color: var(--secondary-color);
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+
+        .success-message p {
+            color: #666;
+            font-size: 1.1em;
         }
 
         .pledge-box {
@@ -578,8 +888,14 @@
             font-style: italic;
             min-height: 80px;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
+            line-height: 1.6;
+        }
+        
+        .pledge-output p {
+           margin-bottom: 0;
         }
 
         .pledge-output strong {
@@ -594,12 +910,12 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.7);
-            display: flex;
+            display: none;
             justify-content: center;
             align-items: center;
             z-index: 9999;
             overflow: auto;
-            display: none;
+            padding: 20px;
         }
 
         .certificate-container {
@@ -613,6 +929,7 @@
             position: relative;
             box-shadow: 0 0 25px rgba(212, 175, 55, 0.8);
             font-family: 'Montserrat', sans-serif;
+            margin: 20px 0;
         }
 
         .cert-close-btn {
@@ -641,6 +958,10 @@
             color: #333;
             margin-bottom: 20px;
         }
+        
+        .certificate-body {
+            margin: 20px 0;
+        }
 
         .certificate-body blockquote {
             font-style: italic;
@@ -668,6 +989,8 @@
             justify-content: space-around;
             align-items: center;
             margin-top: 20px;
+            flex-wrap: wrap;
+            gap: 20px;
         }
 
         .signature-img {
@@ -678,6 +1001,7 @@
         .certificate-signature p {
             font-weight: 600;
             color: #333;
+            margin: 0;
         }
 
         .cert-btn {
@@ -691,18 +1015,34 @@
             margin: 5px;
             text-decoration: none;
             font-size: 1em;
+            transition: background-color 0.3s;
         }
 
         .cert-btn:hover {
             background: #b8860b;
         }
+        
+        .cert-btn i {
+            margin-right: 8px;
+        }
+        
+        .cert-btn.fab {
+            background-color: #25D366;
+        }
+        .cert-btn.fab:hover {
+             background-color: #128C7E;
+        }
 
         .cert-button-group {
             margin-top: 25px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
         }
 
         #confetti-canvas {
-            position: fixed;
+            position: absolute;
             top: 0;
             left: 0;
             pointer-events: none;
@@ -710,198 +1050,113 @@
             height: 100%;
             z-index: 10000;
         }
-
+        
         .hero-modal-content {
-            background: linear-gradient(to bottom, #ffffff 0%, #fdfdfd 100%);
+            background: linear-gradient(135deg, var(--primary-color) 0%, #c0392b 100%);
+            color: #fff;
             border-radius: 15px;
             padding: 40px;
             text-align: center;
             position: relative;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-            width: 600px;
-            max-width: 90%;
-            border-top: 10px solid var(--footer-accent);
-            border-bottom: 10px solid var(--footer-accent);
+            max-width: 600px;
+            width: 90%;
+            font-family: 'Montserrat', sans-serif;
+            border: 4px solid #fff;
         }
-
+        
         #hero-close-btn {
             position: absolute;
             top: 10px;
             right: 15px;
-            font-size: 32px;
-            color: #bbb;
-            font-weight: bold;
+            font-size: 30px;
+            color: #fff;
             cursor: pointer;
-            transition: color 0.3s, transform 0.3s;
+            opacity: 0.8;
+            transition: opacity 0.3s, transform 0.3s;
         }
-
+        
         #hero-close-btn:hover {
-            color: var(--primary-color);
+            opacity: 1;
             transform: rotate(90deg);
         }
 
         .hero-modal-content h1 {
-            font-family: 'Playfair Display', serif;
             font-size: 2.8em;
-            color: #b8860b;
-            margin: 10px 0 15px 0;
-            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
-            line-height: 1.2;
+            margin: 10px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
-
+        
         .hero-modal-content h2 {
-            font-family: 'Montserrat', sans-serif;
             font-size: 1.5em;
-            font-weight: 600;
-            color: var(--secondary-color);
-            margin-bottom: 20px;
+            font-weight: 400;
+            opacity: 0.9;
+            color: #fff !important;
+            border: none !important;
+            margin-bottom: 0 !important;
         }
-
+        
         .hero-modal-content p {
-            font-family: 'Open Sans', sans-serif;
             font-size: 1.1em;
-            color: #444;
-            margin: 10px auto;
-            line-height: 1.7;
-            max-width: 85%;
+            margin-bottom: 15px;
         }
-
+        
         .hero-modal-content p.emphasis {
-            font-family: 'Dancing Script', cursive;
             font-weight: 700;
-            font-size: 1.8em;
-            color: var(--primary-color);
-            margin-top: 20px;
-            line-height: 1.4;
-            max-width: 100%;
+            font-size: 1.2em;
+            color: var(--footer-accent);
         }
 
-        .hero-modal-content p.emphasis:last-of-type {
-            font-family: 'Dancing Script', cursive;
-            font-size: 1.8em;
-            color: var(--primary-color);
-        }
-
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 90%;
-                right: -90%;
-            }
-
-            .sidebar-toggle {
-                font-size: 16px;
-                padding: 12px 8px;
-            }
-
-            .flex-cards>article {
-                min-width: 100%;
-            }
-
-            nav {
-                flex-direction: column;
-                padding: 1em 2em;
-            }
-
-            .nav-links li:hover .dropdown-menu {
+        @media print {
+            body > *:not(#certificate-modal) {
                 display: none;
             }
-
-            header {
-                margin-top: 150px;
-            }
-
-            .nav-links {
-                flex-direction: column;
+            #certificate-modal {
+                display: flex !important;
+                background: none !important;
+                position: absolute !important;
+                top: 0;
+                left: 0;
                 width: 100%;
-                gap: 0.8em;
-                margin-top: 0.8em;
+                height: 100%;
+                padding: 0 !important;
+                margin: 0 !important;
+                overflow: hidden !important;
             }
-
-            .pledge-form-group {
-                flex-direction: column;
-                gap: 10px;
-            }
-
-            .pledge-form-group input[type="text"] {
-                width: 100%;
-                max-width: none;
-            }
-
-            .certificate-footer {
-                flex-direction: column;
-                gap: 10px;
-            }
-
             .certificate-container {
-                padding: 30px 20px;
-                min-height: 400px;
-                width: 95%;
+                box-shadow: none !important;
+                border: 10px solid #d4af37 !important;
+                margin: 0 !important;
+                max-width: 100% !important;
+                width: 100% !important;
+                height: 100% !important;
+                page-break-inside: avoid;
+                border-radius: 0 !important;
             }
-
-            .certificate-header h2 {
-                font-size: 1.8em;
+            .cert-close-btn,
+            .cert-button-group {
+                display: none !important;
             }
-
-            .certificate-header p {
-                font-size: 1em;
-            }
-
-            .cert-name {
-                font-size: 1.5em;
-            }
-
-            .certificate-body p {
-                font-size: 1em;
-            }
-
-            .certificate-body blockquote {
-                max-width: 95%;
-                font-size: 0.9em;
-                padding-left: 10px;
-            }
-
-            .hero-modal-content h1 {
-                font-size: 2em;
-            }
-
-            .hero-modal-content h2 {
-                font-size: 1.3em;
-            }
-
-            .hero-modal-content p {
-                font-size: 1em;
-                max-width: 100%;
-            }
-
-            .hero-modal-content p.emphasis {
-                font-size: 1.5em;
+            #confetti-canvas {
+                display: none !important;
             }
         }
-
-       
     </style>
 </head>
 
 <body>
-    <!-- Sidebar Toggle Button -->
+
     <button class="sidebar-toggle" id="sidebarToggle">
         <i class="fas fa-newspaper"></i> NEWS & EVENTS
     </button>
-
-    <!-- Sidebar Overlay -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
-
-    <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <h2><i class="fas fa-newspaper"></i> Latest Updates</h2>
             <button class="sidebar-close" id="sidebarClose">&times;</button>
         </div>
-
-        <!-- Newspaper Cuttings Section -->
         <div class="sidebar-section">
             <h3><i class="fas fa-newspaper"></i> News & Updates</h3>
-
             <div class="news-item">
                 <img src="Photoes/report 1.png" alt="Road safety news">
                 <h4>Road Accident Deaths Rise by 12%</h4>
@@ -910,17 +1165,14 @@
                     <i class="fas fa-calendar"></i> Oct 22, 2025
                 </div>
             </div>
-
             <div class="news-item">
                 <img src="Photoes/report3.png" alt="Traffic rules update">
                 <h4>New Helmet Law Enforcement</h4>
-                <p>Stricter penalties announced for riding without helmets. Fine increased to ₹5,000 for repeat
-                    offenders.</p>
+                <p>Stricter penalties announced for riding without helmets. Fine increased to ₹5,000 for repeat offenders.</p>
                 <div class="news-date">
                     <i class="fas fa-calendar"></i> Oct 18, 2025
                 </div>
             </div>
-
             <div class="news-item">
                 <img src="Photoes/report 4.jpg" alt="Safety campaign">
                 <h4>National Road Safety Week Announced</h4>
@@ -929,7 +1181,6 @@
                     <i class="fas fa-calendar"></i> Oct 15, 2025
                 </div>
             </div>
-
             <div class="news-item">
                 <img src="Photoes/report 2 .png" alt="Technology news">
                 <h4>AI Traffic Signals Reduce Congestion by 30%</h4>
@@ -939,11 +1190,8 @@
                 </div>
             </div>
         </div>
-
-        <!-- Upcoming Events Section -->
         <div class="sidebar-section">
             <h3><i class="fas fa-calendar-alt"></i> Upcoming Events</h3>
-
             <div class="event-item">
                 <h4>🎓 Road Safety Workshop</h4>
                 <p>Free workshop for drivers on defensive driving techniques and road safety awareness.</p>
@@ -954,7 +1202,6 @@
                     <i class="fas fa-clock"></i> Nov 5, 2025 - 10:00 AM
                 </div>
             </div>
-
             <div class="event-item">
                 <h4>🚦 Traffic Rules Seminar</h4>
                 <p>Interactive session covering updated traffic laws and regulations with traffic police officials.</p>
@@ -965,18 +1212,16 @@
                     <i class="fas fa-clock"></i> Nov 12, 2025 - 3:00 PM
                 </div>
             </div>
-
             <div class="event-item">
                 <h4>🏃 Road Safety Marathon</h4>
                 <p>Join the city-wide marathon to promote awareness about pedestrian safety and responsible driving.</p>
                 <div class="event-date">
-                    <i class="fas fa-map-marker-alt"></i>cricket ground
+                    <i class="fas fa-map-marker-alt"></i>cricket ground 
                 </div>
                 <div class="event-date">
                     <i class="fas fa-clock"></i> Nov 20, 2025 - 6:00 AM
                 </div>
             </div>
-
             <div class="event-item">
                 <h4>👨‍👩‍👧‍👦 Family Safety Day</h4>
                 <p>Fun-filled day with safety demonstrations, first-aid training, and activities for children.</p>
@@ -999,7 +1244,6 @@
 
         <ul class="nav-links">
             <li><a href="#home">Home</a></li>
-
             <li class="dropdown">
                 <a href="#road-safety" aria-expanded="false" aria-haspopup="true">Road Safety Tips <i
                         class="fas fa-caret-down"></i></a>
@@ -1020,7 +1264,6 @@
                     <li><a href="#challenges">Challenges</a></li>
                 </ul>
             </li>
-
             <li><a href="Collage.html">Collage</a></li>
             <li><a href="footer.html">Contact</a></li>
         </ul>
@@ -1036,71 +1279,103 @@
         </main>
     </header>
 
-    <div class="content">
-        <div id="how-it-works" style="padding-top: 50px; margin-top: -50px;"></div>
-        <div id="benefits" style="padding-top: 50px; margin-top: -50px;"></div>
-        <div id="challenges" style="padding-top: 50px; margin-top: -50px;"></div>
-        <div class="flex-cards" id="safety-accordion">
-            <article id="road-safety" class="education">
-                <h2><i class="fas fa-book-open"></i> Essential Road Education</h2>
-                <div class="edu-item" tabindex="0" role="button" aria-expanded="false" aria-controls="edu-details-1">
-                    <span class="edu-title"><i class="fas fa-shield-alt"></i> Defensive Driving</span>
+    <main class="content">
+        <div class="flex-cards">
+            <article class="education" id="education">
+                <h2><i class="fas fa-book-open"></i> Safety Education</h2>
+                <div class="edu-item" tabindex="0">
+                    <div class="edu-title"><i class="fas fa-car-crash"></i> Understanding Blind Spots</div>
                     <i class="fas fa-chevron-right edu-chevron"></i>
                 </div>
-                <div class="edu-details" id="edu-details-1" aria-hidden="true">
-                    Use safe driving strategies, anticipate hazards, and avoid crashes by scanning the road constantly.
+                <div class="edu-details">
+                    <p>Every vehicle has blind spots... (content hidden)</p>
                 </div>
-
-                <div class="edu-item" tabindex="0" role="button" aria-expanded="false" aria-controls="edu-details-2">
-                    <span class="edu-title"><i class="fas fa-eye"></i> Recognising Road Hazards</span>
+                <div class="edu-item" tabindex="0">
+                    <div class="edu-title"><i class="fas fa-road"></i> Hydroplaning Explained</div>
                     <i class="fas fa-chevron-right edu-chevron"></i>
                 </div>
-                <div class="edu-details" id="edu-details-2" aria-hidden="true">
-                    Be vigilant for poor visibility, pedestrians, distracted drivers, and road surface changes.
+                <div class="edu-details">
+                    <p>Hydroplaning occurs when... (content hidden)</p>
                 </div>
             </article>
 
-            <article class="tips">
-                <h2><i class="fas fa-lightbulb"></i> Quick Safety Tips</h2>
-                <div class="tip" tabindex="0" role="button" aria-expanded="false" aria-controls="tip-details-1">
-                    <span class="tip-title"><i class="fas fa-seat-belt"></i> Always wear your seatbelt</span>
+            <article class="tips" id="tips">
+                <h2><i class="fas fa-lightbulb"></i> Top Safety Tips</h2>
+                <div class="tip" tabindex="0">
+                    <div class="tip-title"><i class="fas fa-mobile-alt"></i> Avoid Distractions</div>
                     <i class="fas fa-chevron-right tip-chevron"></i>
                 </div>
-                <div class="tip-details" id="tip-details-1" aria-hidden="true">
-                    Reduces serious injury and death in accidents by over 50%.
+                <div class="tip-details">
+                    <p>Put your phone away... (content hidden)</p>
                 </div>
-
-                <div class="tip" tabindex="0" role="button" aria-expanded="false" aria-controls="tip-details-2">
-                    <span class="tip-title"><i class="fas fa-mobile-alt"></i> Don't text and drive</span>
+                <div class="tip" tabindex="0">
+                    <div class="tip-title"><i class="fas fa-tachometer-alt"></i> Watch Your Speed</div>
                     <i class="fas fa-chevron-right tip-chevron"></i>
                 </div>
-                <div class="tip-details" id="tip-details-2" aria-hidden="true">
-                    Distracted driving is a major cause of crashes. Use hands-free or stop safely.
+                <div class="tip-details">
+                    <p>Speed limits are set for... (content hidden)</p>
                 </div>
             </article>
         </div>
 
-        <section class="pledge-box">
-            <h2><i class="fas fa-hands-helping"></i> Take the Road Safety Pledge</h2>
-            <p>Enter your name below and commit to safer roads for everyone. Let's drive responsibly!</p>
-            <div class="pledge-form-group">
-                <label for="pledge-name">Your Name:</label>
-                <input type="text" id="pledge-name" placeholder="Eg : vivek yadav "
-                    aria-label="Enter your name for the pledge">
-                <button id="generate-pledge-btn" aria-label="Generate my road safety pledge">Generate Pledge</button>
-            </div>
-            <div id="pledge-output" class="pledge-output">
-                <p>
-                    <strong>This pledge is not just a promise,</strong>
-                    It is a movement</em> —<br>
-                    a movement that begins with one responsible citizen…<br>
-                    <strong>And Today</strong>, that responsible citizen is <strong><em>YOU</em>.</strong><br>
-                    <strong>Your decision</strong> can influence others,<br>
-                    <em>Your voice</em> can inspire change,<br>
-                    and <strong><em>Your action</em> can save lives.</strong>
-                </p>
+        <section class="community-box" id="community">
+            <h2><i class="fas fa-users"></i> Join Our Safety Community</h2>
+            <p>Register as a community driver or an emergency responder to get localized alerts and contribute to safer roads for everyone.</p>
+            <div class="registration-options">
+                <div class="reg-card driver">
+                    <div class="reg-card-icon"><i class="fas fa-car"></i></div>
+                    <h3>Driver Registration</h3>
+                    <p>Get alerts on road conditions, accidents, and construction in your area. Report hazards and help others.</p>
+                    <button class="reg-btn" data-form-type="driver">Register as Driver</button>
+                </div>
+                <div class="reg-card emergency">
+                    <div class="reg-card-icon"><i class="fas fa-first-aid"></i></div>
+                    <h3>Emergency Services</h3>
+                    <p>Register your service to get priority access to AI-optimized routes and real-time incident data.</p>
+                    <button class="reg-btn" data-form-type="emergency">Register Service</button>
+                </div>
             </div>
         </section>
+
+        <section class="pledge-box" id="pledge">
+              <h2><i class="fas fa-hands-helping"></i> Take the Road Safety Pledge</h2>
+              <p>Enter your name below and commit to safer roads for everyone. Let's drive responsibly!</p>
+              <div class="pledge-form-group">
+                  <label for="pledge-name">Your Name:</label>
+                  <input type="text" id="pledge-name" placeholder="Eg : vivek yadav "
+                      aria-label="Enter your name for the pledge">
+                  <button id="generate-pledge-btn" aria-label="Generate my road safety pledge">Generate Pledge</button>
+              </div>
+              <div id="pledge-output" class="pledge-output">
+                  <p>
+                      <strong>This pledge is not just a promise,</strong>
+                      It is a movement</em> —<br>
+                      a movement that begins with one responsible citizen…<br>
+                      <strong>And Today</strong>, that responsible citizen is <strong><em>YOU</em>.</strong><br>
+                      <strong>Your decision</strong> can influence others,<br>
+                      <em>Your voice</em> can inspire change,<br>
+                      and <strong><em>Your action</em> can save lives.</strong>
+                  </p>
+              </div>
+          </section>
+
+    </main>
+
+    <div class="reg-modal-overlay" id="reg-modal">
+        <div class="reg-form-container">
+            <span class="reg-form-close">&times;</span>
+            <div id="reg-form-content">
+                <div class="reg-form-header">
+                    <h2 id="reg-form-title">Community Registration</h2>
+                    <p id="reg-form-subtitle">Fill out the form below to join.</p>
+                </div>
+                <form id="registration-form">
+                    <button type="submit" class="submit-btn">Submit Registration</button>
+                </form>
+            </div>
+            <div class="success-message" id="success-message">
+                 </div>
+        </div>
     </div>
 
     <div id="certificate-modal" class="modal-overlay">
@@ -1134,7 +1409,7 @@
             <div class="cert-button-group">
                 <button id="cert-print-btn" class="cert-btn"><i class="fas fa-print"></i> Print</button>
                 <button id="cert-pdf-btn" class="cert-btn"><i class="fas fa-file-pdf"></i> Download PDF</button>
-                <a id="cert-whatsapp" target="_blank" class="cert-btn"><i class="fab fa-whatsapp"></i> Share
+                <a id="cert-whatsapp" target="_blank" class="cert-btn fab fa-whatsapp"><i class="fab fa-whatsapp"></i> Share
                     WhatsApp</a>
             </div>
         </div>
@@ -1158,171 +1433,192 @@
         </div>
     </div>
 
-
     <script>
-        // Sidebar Toggle Functionality
-        const sidebarToggle = document.getElementById('sidebarToggle');
-        const sidebar = document.getElementById('sidebar');
-        const sidebarClose = document.getElementById('sidebarClose');
-        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        document.addEventListener('DOMContentLoaded', () => {
 
-        function openSidebar() {
-            sidebar.classList.add('active');
-            sidebarOverlay.classList.add('active');
-        }
+            // --- Sidebar Logic ---
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarClose = document.getElementById('sidebarClose');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
 
-        function closeSidebar() {
-            sidebar.classList.remove('active');
-            sidebarOverlay.classList.remove('active');
-        }
+            const toggleSidebar = () => {
+                sidebar.classList.toggle('active');
+                sidebarOverlay.classList.toggle('active');
+            };
 
-        sidebarToggle.addEventListener('click', openSidebar);
-        sidebarClose.addEventListener('click', closeSidebar);
-        sidebarOverlay.addEventListener('click', closeSidebar);
+            sidebarToggle.addEventListener('click', toggleSidebar);
+            sidebarClose.addEventListener('click', toggleSidebar);
+            sidebarOverlay.addEventListener('click', toggleSidebar);
 
-        // Accordion Script
-        const accordions = document.querySelectorAll('.tip, .edu-item');
+            // --- Accordion Logic (Tips & Education) ---
+            const accordionItems = document.querySelectorAll('.tip, .edu-item');
 
-        accordions.forEach(item => {
-            const details = item.nextElementSibling;
-            item.addEventListener('click', () => toggleItem(item, details));
-            item.addEventListener('keydown', e => {
-                if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    toggleItem(item, details);
-                }
-            });
-        });
+            accordionItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const details = item.nextElementSibling;
+                    const isOpen = details.classList.contains('open');
+                    
+                    document.querySelectorAll('.tip-details, .edu-details').forEach(d => {
+                        d.classList.remove('open');
+                        d.style.maxHeight = null;
+                        d.previousElementSibling.classList.remove('active');
+                    });
 
-        function toggleItem(el, details) {
-            const parent = el.closest('article');
-            const isActive = el.classList.contains('active');
-
-            parent.querySelectorAll('.tip.active, .edu-item.active').forEach(item => {
-                if (item !== el) {
-                    const otherDetails = item.nextElementSibling;
-                    item.classList.remove('active');
-                    item.setAttribute('aria-expanded', 'false');
-                    otherDetails.style.maxHeight = null;
-                    otherDetails.classList.remove('open');
-                    otherDetails.style.opacity = 0;
-                    otherDetails.setAttribute('aria-hidden', 'true');
-                }
-            });
-
-            if (!isActive) {
-                el.classList.add('active');
-                el.setAttribute('aria-expanded', 'true');
-                details.classList.add('open');
-                details.setAttribute('aria-hidden', 'false');
-                window.requestAnimationFrame(() => {
-                    details.style.maxHeight = details.scrollHeight + "px";
-                    details.style.opacity = 1;
+                    if (!isOpen) {
+                        item.classList.add('active');
+                        details.classList.add('open');
+                        details.style.maxHeight = details.scrollHeight + 'px';
+                    }
                 });
-            } else {
-                el.classList.remove('active');
-                el.setAttribute('aria-expanded', 'false');
-                details.style.maxHeight = details.scrollHeight + "px";
-                void details.offsetWidth;
-                details.style.opacity = 0;
-                setTimeout(() => {
-                    details.classList.remove('open');
-                    details.setAttribute('aria-hidden', 'true');
-                    details.style.maxHeight = null;
-                }, 100);
+            });
+
+
+            // --- Registration Modal Logic ---
+            const regModal = document.getElementById('reg-modal');
+            const regOpenBtns = document.querySelectorAll('.reg-btn');
+            const regCloseBtn = regModal.querySelector('.reg-form-close');
+            
+            regOpenBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // ... (rest of registration modal logic is unchanged)
+                    regModal.classList.add('active');
+                });
+            });
+            if (regCloseBtn) {
+                 regCloseBtn.addEventListener('click', () => regModal.classList.remove('active'));
             }
-        }
-    </script>
-
-    <script type="module">
-        const pledgeBtn = document.getElementById('generate-pledge-btn');
-        const nameInput = document.getElementById('pledge-name');
-
-        pledgeBtn.addEventListener('click', () => {
-            let name = nameInput.value.trim();
-
-            if (name === "") {
-                nameInput.style.borderColor = 'red';
-                nameInput.placeholder = 'Please enter your name first!';
-                nameInput.focus();
-                return;
+            if (regModal) {
+                regModal.addEventListener('click', (e) => {
+                    if (e.target === regModal) regModal.classList.remove('active');
+                });
             }
+           
 
-            name = name.split(' ')
-                .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-                .join(' ');
+            // --- Pledge & Certificate Logic ---
+            const pledgeBtn = document.getElementById('generate-pledge-btn');
+            const pledgeNameInput = document.getElementById('pledge-name');
+            const pledgeOutputP = document.querySelector('#pledge-output p');
+            const originalPledgeHTML = pledgeOutputP.innerHTML;
 
-            showCertificate(name);
-        });
+            const certModal = document.getElementById('certificate-modal');
+            const certCloseBtn = document.getElementById('cert-close-btn');
+            const certName = document.getElementById('cert-name');
+            const certDate = document.getElementById('current-date');
+            const downloadPdfBtn = document.getElementById('cert-pdf-btn');
+            const printBtn = document.getElementById('cert-print-btn');
+            const whatsappBtn = document.getElementById('cert-whatsapp');
+            const certificateContainer = certModal.querySelector('.certificate-container');
+            const confettiCanvas = document.getElementById('confetti-canvas');
+            
+            const heroModal = document.getElementById('hero-modal');
+            const heroCloseBtn = document.getElementById('hero-close-btn');
 
-        nameInput.addEventListener('input', () => {
-            if (nameInput.value.trim() !== "") {
-                nameInput.style.borderColor = '#ccc';
-                nameInput.placeholder = 'Eg : vivek yadav ';
-            }
-        });
+            const myConfetti = confetti.create(confettiCanvas, {
+                resize: true,
+                useWorker: true
+            });
 
-        const modal = document.getElementById('certificate-modal');
-        const closeBtn = document.getElementById('cert-close-btn');
-        const certName = document.getElementById('cert-name');
-        const certDate = document.getElementById('current-date');
-        const heroModal = document.getElementById('hero-modal');
-        const heroCloseBtn = document.getElementById('hero-close-btn');
+            pledgeBtn.addEventListener('click', () => {
+                const name = pledgeNameInput.value.trim();
+                if (name === "") {
+                    alert("Please enter your name to generate the pledge.");
+                    pledgeNameInput.focus();
+                    return;
+                }
 
-        function showCertificate(name) {
-            certName.textContent = name;
-            certDate.textContent = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-            modal.style.display = 'flex';
+                const newPledgeHTML = originalPledgeHTML.replace(
+                    '<strong><em>YOU</em>.</strong>',
+                    `<strong style="color: var(--primary-color);"><em>${name}</em>.</strong>`
+                );
+                pledgeOutputP.innerHTML = newPledgeHTML;
 
-            if (typeof confetti === 'function') {
-                confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-            }
+                certName.textContent = name;
+                certDate.textContent = new Date().toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
 
-            const text = `I just pledged for road safety! ${window.location.href}`;
-            document.getElementById('cert-whatsapp').href = `https://wa.me/?text=${encodeURIComponent(text)}`;
-        }
+                const shareText = encodeURIComponent(
+                    `I just took the SafeReturn Road Safety Pledge! Join me in committing to safer roads. #SafeReturn #RoadSafetyHero`
+                );
+                whatsappBtn.href = `https://wa.me/?text=${shareText}`;
 
-        function closeCertificateShowHero() {
-            modal.style.display = 'none';
-            heroModal.style.display = 'flex';
-        }
+                certModal.style.display = 'flex';
 
-        function closeHeroModal() {
-            heroModal.style.display = 'none';
-        }
+                myConfetti({
+                    particleCount: 150,
+                    spread: 90,
+                    origin: { y: 0.6 },
+                    zIndex: 10001
+                });
+            });
 
-        closeBtn.addEventListener('click', closeCertificateShowHero);
-        heroCloseBtn.addEventListener('click', closeHeroModal);
+            certCloseBtn.addEventListener('click', () => {
+                certModal.style.display = 'none';
+                heroModal.style.display = 'flex';
+            });
 
-        document.getElementById('cert-print-btn').addEventListener('click', () => { window.print(); });
+            heroCloseBtn.addEventListener('click', () => {
+                heroModal.style.display = 'none';
+            });
+            
+            downloadPdfBtn.addEventListener('click', () => {
+                const buttons = certificateContainer.querySelector('.cert-button-group');
+                const closeBtn = certificateContainer.querySelector('.cert-close-btn');
+                
+                buttons.style.display = 'none';
+                closeBtn.style.display = 'none';
 
-        document.getElementById('cert-pdf-btn').addEventListener('click', () => {
-            if (typeof html2canvas === 'function' && typeof jspdf !== 'undefined') {
-                html2canvas(document.querySelector('.certificate-container')).then(canvas => {
+                html2canvas(certificateContainer, {
+                    scale: 2, 
+                    useCORS: true
+                }).then(canvas => {
+                    buttons.style.display = 'flex';
+                    closeBtn.style.display = 'block';
+
                     const imgData = canvas.toDataURL('image/png');
-                    const pdf = new jspdf.jsPDF('l', 'pt', 'a4');
-                    const imgProps = pdf.getImageProperties(imgData);
-                    const pdfWidth = pdf.internal.pageSize.getWidth();
-                    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                    pdf.addImage(imgData, 'PNG', 0, 40, pdfWidth, pdfHeight);
-                    pdf.save('RoadSafetyCertificate.pdf');
-                });
-            } else {
-                console.error('jsPDF or html2canvas not loaded');
-            }
-        });
+                    const { jsPDF } = window.jspdf;
 
-        window.onclick = (event) => {
-            if (event.target == modal) {
-                closeCertificateShowHero();
-            }
-            if (event.target == heroModal) {
-                closeHeroModal();
-            }
-        }
+                    const pdfWidth = 210;
+                    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+
+                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                    pdf.save('SafeReturn_Pledge.pdf');
+                }).catch(err => {
+                    console.error("Error generating PDF:", err);
+                    buttons.style.display = 'flex';
+                    closeBtn.style.display = 'block';
+                });
+            });
+            
+            printBtn.addEventListener('click', () => {
+                window.print();
+            });
+            
+            certModal.addEventListener('click', (e) => {
+                 if (e.target === certModal) {
+                    certModal.style.display = 'none';
+                    heroModal.style.display = 'flex';
+                 }
+            });
+            
+            heroModal.addEventListener('click', (e) => {
+                 if (e.target === heroModal) {
+                    heroModal.style.display = 'none';
+                 }
+            });
+
+        });
     </script>
 
-    <!-- footer -->
+
+
+
+
+  <!-- footer -->
 <footer
     style="background-color: var(--dark-bg); color: var(--light-text); padding: 50px 0; font-family: 'Poppins', sans-serif;">
     <div
@@ -1493,6 +1789,12 @@
     </style>
     
 </footer>
+</body>
+
+</html>
+
+    
+
 </body>
 
 </html>
