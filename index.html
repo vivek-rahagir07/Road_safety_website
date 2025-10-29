@@ -5,13 +5,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Road Safety Awareness – Safe Return</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Open+Sans:wght@400;600&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Playfair+Display:wght@400;700&display=swap"
+        rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    
+
     <style>
         :root {
             --primary-color: #ff4d4d;
@@ -45,20 +49,21 @@
         */
         body {
             font-family: 'Open Sans', sans-serif;
-            
+
             /* 1. Make sure your image (e.g., 'my-background.jpg') is inside the 'Photoes' folder.
                2. Change 'your-background-image.jpg' below to match your image file name.
             */
             background: linear-gradient(rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.35)),
                 url('Photoes/index.jpg') center/cover no-repeat fixed;
-            
-            
-            
+
+
+
             color: var(--text-color);
             line-height: 1.6;
             min-height: 100vh;
             overflow-x: hidden;
         }
+
         /* =========================================== */
 
 
@@ -81,10 +86,10 @@
             writing-mode: vertical-rl;
             text-orientation: mixed;
         }
-        
+
         .sidebar-toggle i {
-             margin-bottom: 8px;
-             display: block;
+            margin-bottom: 8px;
+            display: block;
         }
 
         .sidebar-toggle:hover {
@@ -210,7 +215,7 @@
             gap: 5px;
             margin-top: 8px;
         }
-        
+
         .event-date i {
             color: var(--primary-color);
         }
@@ -323,7 +328,7 @@
             bottom: 0;
             left: 0;
         }
-        
+
         .nav-links li:not(.dropdown) a:hover::after {
             width: 100%;
         }
@@ -332,8 +337,8 @@
             color: var(--primary-color);
         }
 
-        .nav-links li.dropdown:hover > a {
-             color: var(--primary-color);
+        .nav-links li.dropdown:hover>a {
+            color: var(--primary-color);
         }
 
         .dropdown-menu {
@@ -570,14 +575,16 @@
 
         .registration-options {
             display: flex;
-            gap: 1.5em; /* Reduced from 2em */
+            gap: 1.5em;
+            /* Reduced from 2em */
             justify-content: center;
             flex-wrap: wrap;
         }
 
         .reg-card {
             flex: 1;
-            min-width: 260px; /* Reduced from 280px */
+            min-width: 260px;
+            /* Reduced from 280px */
             max-width: 400px;
             background: white;
             padding: 2em;
@@ -654,7 +661,8 @@
 
         /* === NEW TRAVELER CARD STYLES === */
         .reg-card.traveler:hover {
-            border-color: #007bff; /* Blue */
+            border-color: #007bff;
+            /* Blue */
         }
 
         .reg-card.traveler .reg-card-icon {
@@ -668,6 +676,7 @@
         .reg-card.traveler .reg-btn:hover {
             background: #0056b3;
         }
+
         /* === END TRAVELER CARD STYLES === */
 
         .reg-modal-overlay {
@@ -827,26 +836,29 @@
         /* Styles for new registration forms */
         #driver-form-wrapper,
         #emergency-form-wrapper,
-        #traveler-form-wrapper, /* Add traveler wrapper */
+        #traveler-form-wrapper,
+        /* Add traveler wrapper */
         #driver-success-message,
         #emergency-success-message,
-        #traveler-success-message { /* Add traveler success */
-            display: none; /* Hidden by default */
+        #traveler-success-message {
+            /* Add traveler success */
+            display: none;
+            /* Hidden by default */
         }
- 
+
         .form-group-checkbox {
             display: flex;
             align-items: center;
             gap: 10px;
             margin-bottom: 20px;
         }
-        
+
         .form-group-checkbox input[type="checkbox"] {
             width: 18px;
             height: 18px;
             accent-color: var(--primary-color);
         }
-        
+
         .form-group-checkbox label {
             margin-bottom: 0;
             font-weight: normal;
@@ -861,30 +873,32 @@
             background: var(--hover-color);
             box-shadow: 0 5px 15px rgba(255, 77, 77, 0.3);
         }
-        
+
         .submit-btn.driver-btn {
             background: #4CAF50;
         }
-        
+
         .submit-btn.driver-btn:hover {
             background: #45a049;
             box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
         }
-        
+
         /* === NEW TRAVELER BUTTON STYLE === */
         .submit-btn.traveler-btn {
             background: #007bff;
         }
-        
+
         .submit-btn.traveler-btn:hover {
             background: #0056b3;
             box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
         }
+
         /* === END TRAVELER BUTTON STYLE === */
 
         /* === NEW MAP STYLES === */
         .map-preview-btn {
-            background-color: #6c757d; /* A neutral gray */
+            background-color: #6c757d;
+            /* A neutral gray */
             margin-top: 0;
             margin-bottom: 15px;
             font-size: 1em;
@@ -913,7 +927,8 @@
         }
 
         .map-api-notice {
-            color: #b22222; /* Firebrick red */
+            color: #b22222;
+            /* Firebrick red */
             text-align: center;
             padding: 20px;
             font-weight: 600;
@@ -923,12 +938,14 @@
             justify-content: center;
             flex-direction: column;
         }
+
         .map-api-notice i {
             font-size: 2em;
             margin-bottom: 10px;
         }
+
         /* === END NEW MAP STYLES === */
-        
+
         /* End of new styles */
 
 
@@ -1019,9 +1036,9 @@
             align-items: center;
             line-height: 1.6;
         }
-        
+
         .pledge-output p {
-           margin-bottom: 0;
+            margin-bottom: 0;
         }
 
         .pledge-output strong {
@@ -1084,7 +1101,7 @@
             color: #333;
             margin-bottom: 20px;
         }
-        
+
         .certificate-body {
             margin: 20px 0;
         }
@@ -1147,16 +1164,17 @@
         .cert-btn:hover {
             background: #b8860b;
         }
-        
+
         .cert-btn i {
             margin-right: 8px;
         }
-        
+
         .cert-btn.fab {
             background-color: #25D366;
         }
+
         .cert-btn.fab:hover {
-             background-color: #128C7E;
+            background-color: #128C7E;
         }
 
         .cert-button-group {
@@ -1176,7 +1194,7 @@
             height: 100%;
             z-index: 10000;
         }
-        
+
         .hero-modal-content {
             background: linear-gradient(135deg, var(--primary-color) 0%, #c0392b 100%);
             color: #fff;
@@ -1190,7 +1208,7 @@
             font-family: 'Montserrat', sans-serif;
             border: 4px solid #fff;
         }
-        
+
         #hero-close-btn {
             position: absolute;
             top: 10px;
@@ -1201,7 +1219,7 @@
             opacity: 0.8;
             transition: opacity 0.3s, transform 0.3s;
         }
-        
+
         #hero-close-btn:hover {
             opacity: 1;
             transform: rotate(90deg);
@@ -1210,9 +1228,9 @@
         .hero-modal-content h1 {
             font-size: 2.8em;
             margin: 10px 0;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
         }
-        
+
         .hero-modal-content h2 {
             font-size: 1.5em;
             font-weight: 400;
@@ -1221,12 +1239,12 @@
             border: none !important;
             margin-bottom: 0 !important;
         }
-        
+
         .hero-modal-content p {
             font-size: 1.1em;
             margin-bottom: 15px;
         }
-        
+
         .hero-modal-content p.emphasis {
             font-weight: 700;
             font-size: 1.2em;
@@ -1234,9 +1252,10 @@
         }
 
         @media print {
-            body > *:not(#certificate-modal) {
+            body>*:not(#certificate-modal) {
                 display: none;
             }
+
             #certificate-modal {
                 display: flex !important;
                 background: none !important;
@@ -1249,6 +1268,7 @@
                 margin: 0 !important;
                 overflow: hidden !important;
             }
+
             .certificate-container {
                 box-shadow: none !important;
                 border: 10px solid #d4af37 !important;
@@ -1259,10 +1279,12 @@
                 page-break-inside: avoid;
                 border-radius: 0 !important;
             }
+
             .cert-close-btn,
             .cert-button-group {
                 display: none !important;
             }
+
             #confetti-canvas {
                 display: none !important;
             }
@@ -1294,7 +1316,8 @@
             <div class="news-item">
                 <img src="Photoes/report3.png" alt="Traffic rules update">
                 <h4>New Helmet Law Enforcement</h4>
-                <p>Stricter penalties announced for riding without helmets. Fine increased to ₹5,000 for repeat offenders.</p>
+                <p>Stricter penalties announced for riding without helmets. Fine increased to ₹5,000 for repeat
+                    offenders.</p>
                 <div class="news-date">
                     <i class="fas fa-calendar"></i> Oct 18, 2025
                 </div>
@@ -1342,7 +1365,7 @@
                 <h4>🏃 Road Safety Marathon</h4>
                 <p>Join the city-wide marathon to promote awareness about pedestrian safety and responsible driving.</p>
                 <div class="event-date">
-                    <i class="fas fa-map-marker-alt"></i>cricket ground 
+                    <i class="fas fa-map-marker-alt"></i>cricket ground
                 </div>
                 <div class="event-date">
                     <i class="fas fa-clock"></i> Nov 20, 2025 - 6:00 AM
@@ -1414,14 +1437,28 @@
                     <i class="fas fa-chevron-right edu-chevron"></i>
                 </div>
                 <div class="edu-details">
-                    <p>Every vehicle has blind spots... (content hidden)</p>
+                    <p>A blind spot is an area around a vehicle that the driver cannot see through their mirrors or by
+                        looking directly. These hidden zones can exist on both sides of the car, behind it, and
+                        sometimes even in front of large vehicles like trucks and buses. Blind spots are dangerous
+                        because another vehicle, a cyclist, or a pedestrian can be present without the driver realizing
+                        it. Many crashes happen when drivers change lanes or turn without checking these areas properly.
+                        To stay safe, drivers should always adjust their mirrors correctly, look over their shoulder
+                        before switching lanes, and be extra careful around heavy vehicles, which have much bigger blind
+                        spots. Road users like cyclists and pedestrians should also avoid staying close to the sides of
+                        large vehicles. Understanding blind spots helps everyone share the road more safely and prevent
+                        accidents.</p>
                 </div>
                 <div class="edu-item" tabindex="0">
                     <div class="edu-title"><i class="fas fa-road"></i> Hydroplaning Explained</div>
                     <i class="fas fa-chevron-right edu-chevron"></i>
                 </div>
                 <div class="edu-details">
-                    <p>Hydroplaning occurs when... (content hidden)</p>
+                    <p>Hydroplaning (or aquaplaning) happens when a vehicle’s tires lose contact with the road due to a
+                        layer of water between the tire and the surface. This causes the vehicle to “float” on water,
+                        reducing the driver’s ability to steer, brake, or control speed. Hydroplaning usually occurs at
+                        higher speeds on wet roads, especially when tires are worn-out or water on the road is deep. To
+                        prevent hydroplaning, drivers should slow down during rain, maintain proper tire pressure, avoid
+                        sudden turns or braking, and stay away from areas where water collects.</p>
                 </div>
             </article>
 
@@ -1446,12 +1483,14 @@
 
         <section class="community-box" id="community">
             <h2><i class="fas fa-users"></i> Join Our Safety Community</h2>
-            <p>Register as a community driver or an emergency responder to get localized alerts and contribute to safer roads for everyone.</p>
+            <p>Register as a community driver or an emergency responder to get localized alerts and contribute to safer
+                roads for everyone.</p>
             <div class="registration-options">
                 <div class="reg-card driver">
                     <div class="reg-card-icon"><i class="fas fa-car"></i></div>
                     <h3>Driver Registration</h3>
-                    <p>Get alerts on road conditions, accidents, and construction in your area. Report hazards and help others.</p>
+                    <p>Get alerts on road conditions, accidents, and construction in your area. Report hazards and help
+                        others.</p>
                     <button class="reg-btn" data-form-type="driver">Register as Driver</button>
                 </div>
 
@@ -1467,40 +1506,41 @@
                 <div class="reg-card emergency">
                     <div class="reg-card-icon"><i class="fas fa-first-aid"></i></div>
                     <h3>Emergency Services</h3>
-                    <p>Register your service to get priority access to AI-optimized routes and real-time incident data.</p>
+                    <p>Register your service to get priority access to AI-optimized routes and real-time incident data.
+                    </p>
                     <button class="reg-btn" data-form-type="emergency">Register Service</button>
                 </div>
             </div>
         </section>
 
         <section class="pledge-box" id="pledge">
-              <h2><i class="fas fa-hands-helping"></i> Take the Road Safety Pledge</h2>
-              <p>Enter your name below and commit to safer roads for everyone. Let's drive responsibly!</p>
-              <div class="pledge-form-group">
-                  <label for="pledge-name">Your Name:</label>
-                  <input type="text" id="pledge-name" placeholder="Eg : vivek yadav "
-                      aria-label="Enter your name for the pledge">
-                  <button id="generate-pledge-btn" aria-label="Generate my road safety pledge">Generate Pledge</button>
-              </div>
-              <div id="pledge-output" class="pledge-output">
-                  <p>
-                      <strong>This pledge is not just a promise,</strong>
-                      It is a movement</em> —<br>
-                      a movement that begins with one responsible citizen…<br>
-                      <strong>And Today</strong>, that responsible citizen is <strong><em>YOU</em>.</strong><br>
-                      <strong>Your decision</strong> can influence others,<br>
-                      <em>Your voice</em> can inspire change,<br>
-                      and <strong><em>Your action</em> can save lives.</strong>
-                  </p>
-              </div>
-          </section>
+            <h2><i class="fas fa-hands-helping"></i> Take the Road Safety Pledge</h2>
+            <p>Enter your name below and commit to safer roads for everyone. Let's drive responsibly!</p>
+            <div class="pledge-form-group">
+                <label for="pledge-name">Your Name:</label>
+                <input type="text" id="pledge-name" placeholder="Eg : vivek yadav "
+                    aria-label="Enter your name for the pledge">
+                <button id="generate-pledge-btn" aria-label="Generate my road safety pledge">Generate Pledge</button>
+            </div>
+            <div id="pledge-output" class="pledge-output">
+                <p>
+                    <strong>This pledge is not just a promise,</strong>
+                    It is a movement</em> —<br>
+                    a movement that begins with one responsible citizen…<br>
+                    <strong>And Today</strong>, that responsible citizen is <strong><em>YOU</em>.</strong><br>
+                    <strong>Your decision</strong> can influence others,<br>
+                    <em>Your voice</em> can inspire change,<br>
+                    and <strong><em>Your action</em> can save lives.</strong>
+                </p>
+            </div>
+        </section>
 
     </main>
 
     <div class="reg-modal-overlay" id="reg-modal">
         <div class="reg-form-container">
             <span class="reg-form-close">&times;</span>
-            
+
             <!-- === DRIVER REGISTRATION FORM === -->
             <div id="driver-form-wrapper">
                 <div class="reg-form-header">
@@ -1516,8 +1556,10 @@
                         <label for="driverPhone"><i class="fas fa-phone"></i>Phone Number</label>
                         <input type="tel" id="driverPhone" name="driverPhone" required>
                     </div>
-                    
-                    <h3 style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Vehicle Details</h3>
+
+                    <h3
+                        style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        Vehicle Details</h3>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="vehicleType"><i class="fas fa-car-side"></i>Vehicle Type</label>
@@ -1534,7 +1576,7 @@
                             <input type="text" id="licensePlate" name="licensePlate" required>
                         </div>
                     </div>
-                     <div class="form-row">
+                    <div class="form-row">
                         <div class="form-group">
                             <label for="vehicleMake"><i class="fas fa-industry"></i>Vehicle Make</label>
                             <input type="text" id="vehicleMake" name="vehicleMake" placeholder="e.g., Toyota">
@@ -1545,10 +1587,13 @@
                         </div>
                     </div>
 
-                    <h3 style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Trip Details</h3>
-                     <div class="form-group">
+                    <h3
+                        style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        Trip Details</h3>
+                    <div class="form-group">
                         <label for="driverDestination"><i class="fas fa-map-marker-alt"></i>Destination Location</label>
-                        <input type="text" id="driverDestination" name="driverDestination" placeholder="Enter destination address or area">
+                        <input type="text" id="driverDestination" name="driverDestination"
+                            placeholder="Enter destination address or area">
                     </div>
                     <!-- New Map Preview Button -->
                     <button type="button" id="previewDriverMapBtn" class="submit-btn map-preview-btn">
@@ -1577,10 +1622,12 @@
                         <input type="tel" id="travelerPhone" name="travelerPhone" required>
                     </div>
                     <div class="form-group">
-                        <label for="travelerLocation"><i class="fas fa-map-marker-alt"></i>Default Pickup Location (Optional)</label>
-                        <input type="text" id="travelerLocation" name="travelerLocation" placeholder="Enter your home or work address">
+                        <label for="travelerLocation"><i class="fas fa-map-marker-alt"></i>Default Pickup Location
+                            (Optional)</label>
+                        <input type="text" id="travelerLocation" name="travelerLocation"
+                            placeholder="Enter your home or work address">
                     </div>
-                    
+
                     <button type="submit" class="submit-btn traveler-btn">Register as Traveler</button>
                 </form>
             </div>
@@ -1593,7 +1640,9 @@
                     <p id="reg-form-subtitle-emergency">Register your service for priority routing.</p>
                 </div>
                 <form id="emergency-registration-form">
-                    <h3 style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Service & Operator Details</h3>
+                    <h3
+                        style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        Service & Operator Details</h3>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="serviceType"><i class="fas fa-briefcase-medical"></i>Service Type</label>
@@ -1604,8 +1653,8 @@
                             </select>
                         </div>
                         <div class="form-group">
-                             <label for="serviceId"><i class="fas fa-id-badge"></i>Service ID / Badge</label>
-                             <input type="text" id="serviceId" name="serviceId" required>
+                            <label for="serviceId"><i class="fas fa-id-badge"></i>Service ID / Badge</label>
+                            <input type="text" id="serviceId" name="serviceId" required>
                         </div>
                     </div>
                     <div class="form-group">
@@ -1617,7 +1666,9 @@
                         <input type="tel" id="servicePhone" name="servicePhone" required>
                     </div>
 
-                    <h3 style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Vehicle Details</h3>
+                    <h3
+                        style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        Vehicle Details</h3>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="serviceVehicleId"><i class="fas fa-car-on"></i>Vehicle ID / Call Sign</label>
@@ -1625,14 +1676,19 @@
                         </div>
                         <div class="form-group">
                             <label for="serviceVehicleType"><i class="fas fa-ambulance"></i>Vehicle Type</label>
-                            <input type="text" id="serviceVehicleType" name="serviceVehicleType" placeholder="e.g., Patrol Car, Fire Engine">
+                            <input type="text" id="serviceVehicleType" name="serviceVehicleType"
+                                placeholder="e.g., Patrol Car, Fire Engine">
                         </div>
                     </div>
-                    
-                    <h3 style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Dispatch Details</h3>
+
+                    <h3
+                        style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        Dispatch Details</h3>
                     <div class="form-group">
-                        <label for="emergencyDestination"><i class="fas fa-map-marked-alt"></i>Destination Location</label>
-                        <input type="text" id="emergencyDestination" name="emergencyDestination" placeholder="Enter incident address or area">
+                        <label for="emergencyDestination"><i class="fas fa-map-marked-alt"></i>Destination
+                            Location</label>
+                        <input type="text" id="emergencyDestination" name="emergencyDestination"
+                            placeholder="Enter incident address or area">
                     </div>
                     <!-- New Map Preview Button -->
                     <button type="button" id="previewEmergencyMapBtn" class="submit-btn map-preview-btn">
@@ -1640,7 +1696,7 @@
                     </button>
                     <!-- New Map Container -->
                     <div id="emergency-map-container" class="map-container" style="display: none;"></div>
-                    
+
                     <div class="form-group-checkbox">
                         <input type="checkbox" id="bestRoute" name="bestRoute">
                         <label for="bestRoute">Give best possible route option</label>
@@ -1656,12 +1712,12 @@
                 <h3>Registration Successful!</h3>
                 <p>Thank you for joining the driver community.</p>
             </div>
-             <div class="success-message" id="emergency-success-message">
+            <div class="success-message" id="emergency-success-message">
                 <i class="fas fa-check-circle" style="color: var(--primary-color);"></i>
                 <h3>Service Registered!</h3>
                 <p>Your unit is now active. Thank you for your service.</p>
             </div>
-            
+
             <!-- === TRAVELER SUCCESS MESSAGE === -->
             <div class="success-message" id="traveler-success-message">
                 <i class="fas fa-check-circle" style="color: #007bff;"></i>
@@ -1704,7 +1760,8 @@
             <div class="cert-button-group">
                 <button id="cert-print-btn" class="cert-btn"><i class="fas fa-print"></i> Print</button>
                 <button id="cert-pdf-btn" class="cert-btn"><i class="fas fa-file-pdf"></i> Download PDF</button>
-                <a id="cert-whatsapp" target="_blank" class="cert-btn fab fa-whatsapp"><i class="fab fa-whatsapp"></i> Share
+                <a id="cert-whatsapp" target="_blank" class="cert-btn fab fa-whatsapp"><i class="fab fa-whatsapp"></i>
+                    Share
                     WhatsApp</a>
             </div>
         </div>
@@ -1734,7 +1791,7 @@
             // --- API KEY ---
             // IMPORTANT: Replace "YOUR_API_KEY_GOES_HERE" with your actual Google Maps Embed API Key
             // You can get one from the Google Cloud Console.
-            const GOOGLE_MAPS_API_KEY = "AIzaSyAhRd4r8xBzJFKpgAIgXoR1rsun0F7p4_Q"; 
+            const GOOGLE_MAPS_API_KEY = "AIzaSyAhRd4r8xBzJFKpgAIgXoR1rsun0F7p4_Q";
 
             // --- Sidebar Logic ---
             const sidebar = document.getElementById('sidebar');
@@ -1758,7 +1815,7 @@
                 item.addEventListener('click', () => {
                     const details = item.nextElementSibling;
                     const isOpen = details.classList.contains('open');
-                    
+
                     document.querySelectorAll('.tip-details, .edu-details').forEach(d => {
                         d.classList.remove('open');
                         d.style.maxHeight = null;
@@ -1778,17 +1835,17 @@
             const regModal = document.getElementById('reg-modal');
             const regOpenBtns = document.querySelectorAll('.reg-btn');
             const regCloseBtn = regModal.querySelector('.reg-form-close');
-            
+
             // Form Wrappers
             const driverFormWrapper = document.getElementById('driver-form-wrapper');
             const emergencyFormWrapper = document.getElementById('emergency-form-wrapper');
             const travelerFormWrapper = document.getElementById('traveler-form-wrapper'); // New
-            
+
             // Forms
             const driverForm = document.getElementById('driver-registration-form');
             const emergencyForm = document.getElementById('emergency-registration-form');
             const travelerForm = document.getElementById('traveler-registration-form'); // New
-            
+
             // Success Messages
             const driverSuccess = document.getElementById('driver-success-message');
             const emergencySuccess = document.getElementById('emergency-success-message');
@@ -1817,7 +1874,7 @@
                 }
 
                 const embedUrl = `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(location + ', India')}`;
-                
+
                 container.innerHTML = `
                     <iframe
                         loading="lazy"
@@ -1871,7 +1928,7 @@
                     } else if (formType === 'traveler') { // New
                         travelerFormWrapper.style.display = 'block';
                     }
-                    
+
                     regModal.classList.add('active');
                 });
             });
@@ -1884,9 +1941,9 @@
             };
 
             if (regCloseBtn) {
-                 regCloseBtn.addEventListener('click', closeModal);
+                regCloseBtn.addEventListener('click', closeModal);
             }
-            
+
             if (regModal) {
                 regModal.addEventListener('click', (e) => {
                     if (e.target === regModal) {
@@ -1894,20 +1951,20 @@
                     }
                 });
             }
-            
+
             // Handle Driver Form Submission
             driverForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const formData = new FormData(driverForm);
                 const data = Object.fromEntries(formData.entries());
                 console.log('Driver Registration Data:', data);
-                
+
                 driverFormWrapper.style.display = 'none';
                 driverSuccess.style.display = 'block';
-                
+
                 setTimeout(closeModal, 2500); // Close modal after 2.5s
             });
-            
+
             // Handle Emergency Form Submission
             emergencyForm.addEventListener('submit', (e) => {
                 e.preventDefault();
@@ -1921,20 +1978,20 @@
 
                 setTimeout(closeModal, 2500); // Close modal after 2.5s
             });
-            
+
             // Handle Traveler Form Submission
             travelerForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const formData = new FormData(travelerForm);
                 const data = Object.fromEntries(formData.entries());
                 console.log('Traveler Registration Data:', data);
-                
+
                 travelerFormWrapper.style.display = 'none';
                 travelerSuccess.style.display = 'block';
-                
+
                 setTimeout(closeModal, 2500); // Close modal after 2.5s
             });
-           
+
 
             // --- Pledge & Certificate Logic ---
             const pledgeBtn = document.getElementById('generate-pledge-btn');
@@ -1951,7 +2008,7 @@
             const whatsappBtn = document.getElementById('cert-whatsapp');
             const certificateContainer = certModal.querySelector('.certificate-container');
             const confettiCanvas = document.getElementById('confetti-canvas');
-            
+
             const heroModal = document.getElementById('hero-modal');
             const heroCloseBtn = document.getElementById('hero-close-btn');
 
@@ -2008,16 +2065,16 @@
             heroCloseBtn.addEventListener('click', () => {
                 heroModal.style.display = 'none';
             });
-            
+
             downloadPdfBtn.addEventListener('click', () => {
                 const buttons = certificateContainer.querySelector('.cert-button-group');
                 const closeBtn = certificateContainer.querySelector('.cert-close-btn');
-                
+
                 buttons.style.display = 'none';
                 closeBtn.style.display = 'none';
 
                 html2canvas(certificateContainer, {
-                    scale: 2, 
+                    scale: 2,
                     useCORS: true
                 }).then(canvas => {
                     buttons.style.display = 'flex';
@@ -2038,22 +2095,22 @@
                     closeBtn.style.display = 'block';
                 });
             });
-            
+
             printBtn.addEventListener('click', () => {
                 window.print();
             });
-            
+
             certModal.addEventListener('click', (e) => {
-                 if (e.target === certModal) {
+                if (e.target === certModal) {
                     certModal.style.display = 'none';
                     heroModal.style.display = 'flex';
-                 }
+                }
             });
-            
+
             heroModal.addEventListener('click', (e) => {
-                 if (e.target === heroModal) {
+                if (e.target === heroModal) {
                     heroModal.style.display = 'none';
-                 }
+                }
             });
 
         });
@@ -2063,187 +2120,184 @@
 
 
 
-  <!-- footer -->
-<footer
-    style="background-color: var(--dark-bg); color: var(--light-text); padding: 50px 0; font-family: 'Poppins', sans-serif;">
-    <div
-        style="max-width: 1200px; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; padding: 0 20px;">
+    <!-- footer -->
+    <footer
+        style="background-color: var(--dark-bg); color: var(--light-text); padding: 50px 0; font-family: 'Poppins', sans-serif;">
+        <div
+            style="max-width: 1200px; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; padding: 0 20px;">
 
-        <div class="footer-section">
-            <h3
-                style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.5em; display: flex; align-items: center;">
-                <span style="margin-right: 10px;">🚦</span> Road Safety Club
-            </h3>
-            <p style="line-height: 1.6;">
-                Our mission is to empower everyone with the knowledge to drive and walk safely. Join us in making
-                roads safer
-                for all!
-            </p>
+            <div class="footer-section">
+                <h3
+                    style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.5em; display: flex; align-items: center;">
+                    <span style="margin-right: 10px;">🚦</span> Road Safety Club
+                </h3>
+                <p style="line-height: 1.6;">
+                    Our mission is to empower everyone with the knowledge to drive and walk safely. Join us in making
+                    roads safer
+                    for all!
+                </p>
 
-            <button onclick="window.scrollTo({top:0, behavior:'smooth'});" class="back-to-top-btn"
-                style="margin-top: 25px; padding: 12px 25px; background-color: var(--accent-color); border: none; color: var(--dark-bg); font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                ↑ Zoom Back Up!
-            </button>
-        </div>
+                <button onclick="window.scrollTo({top:0, behavior:'smooth'});" class="back-to-top-btn"
+                    style="margin-top: 25px; padding: 12px 25px; background-color: var(--accent-color); border: none; color: var(--dark-bg); font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    ↑ Zoom Back Up!
+                </button>
+            </div>
 
-        <div class="footer-section">
-            <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">📞 Connect With Us</h3>
-            <ul style="list-style: none; padding: 0; line-height: 2;">
-                <li><a href="mailto:info@roadsafetyclub.com" class="footer-link email-link">info@roadsafetyclub.com</a>
-                </li>
-            </ul>
+            <div class="footer-section">
+                <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">📞 Connect With Us</h3>
+                <ul style="list-style: none; padding: 0; line-height: 2;">
+                    <li><a href="mailto:info@roadsafetyclub.com"
+                            class="footer-link email-link">info@roadsafetyclub.com</a>
+                    </li>
+                </ul>
 
-            <h4 style="color: var(--light-text); margin-top: 15px; margin-bottom: 5px; font-weight: 600;">Team
-                Contacts:</h4>
-            <ul style="list-style: none; padding: 0; line-height: 1.8;">
-                <li><a href="tel:9996445592" class="footer-link contact-list-link"><strong>Vivek Yadav:</strong>
-                        9996445592</a>
-                </li>
-                <li><a href="tel:9251399133" class="footer-link contact-list-link"><strong>Shri ji
-                            Aggarwal:</strong>
-                        9457057473</a></li>
-                <li><a href="tel:9389864319" class="footer-link contact-list-link"><strong>Shreya
-                            Chaudhary:</strong>
-                        9389864319</a></li>
-                <li><a href="tel:7056123205" class="footer-link contact-list-link"><strong>Ekta Pannu:</strong>
-                        7056123205</a>
-                </li>
-                <li><a href="tel:9457057473" class="footer-link contact-list-link"><strong>Khush Raghav:</strong>
-                        9251399133</a>
-                </li>
-            </ul>
-        </div>
+                <h4 style="color: var(--light-text); margin-top: 15px; margin-bottom: 5px; font-weight: 600;">Team
+                    Contacts:</h4>
+                <ul style="list-style: none; padding: 0; line-height: 1.8;">
+                    <li><a href="tel:9996445592" class="footer-link contact-list-link"><strong>Vivek Yadav:</strong>
+                            9996445592</a>
+                    </li>
+                    <li><a href="tel:9251399133" class="footer-link contact-list-link"><strong>Shri ji
+                                Aggarwal:</strong>
+                            9457057473</a></li>
+                    <li><a href="tel:9389864319" class="footer-link contact-list-link"><strong>Shreya
+                                Chaudhary:</strong>
+                            9389864319</a></li>
+                    <li><a href="tel:7056123205" class="footer-link contact-list-link"><strong>Ekta Pannu:</strong>
+                            7056123205</a>
+                    </li>
+                    <li><a href="tel:9457057473" class="footer-link contact-list-link"><strong>Khush Raghav:</strong>
+                            9251399133</a>
+                    </li>
+                </ul>
+            </div>
 
-        <div class="footer-section">
-            <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">🔗 Quick Resources</h3>
-            <ul style="list-style: none; padding: 0; line-height: 2;">
-                <!-- This is the updated link -->
-                <li><a href="Road-safety-handbook.pdf" class="footer-link">Traffic Rules Handbook</a></li>
-                <li><a href="/events" class="footer-link">Upcoming Safety Events</a></li>
-                <li><a href="/blog" class="footer-link">Safety Blog</a></li>
-                <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSf4sZdUmq6lhWxHyZ9yFuACp7wRLufzcB2VzmCBoVyg7qvn7w/viewform"
-                        class="footer-link">Join Our Volunteer Team</a></li>
-            </ul>
+            <div class="footer-section">
+                <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">🔗 Quick Resources</h3>
+                <ul style="list-style: none; padding: 0; line-height: 2;">
+                    <!-- This is the updated link -->
+                    <li><a href="Road-safety-handbook.pdf" class="footer-link">Traffic Rules Handbook</a></li>
+                    <li><a href="/events" class="footer-link">Upcoming Safety Events</a></li>
+                    <li><a href="/blog" class="footer-link">Safety Blog</a></li>
+                    <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSf4sZdUmq6lhWxHyZ9yFuACp7wRLufzcB2VzmCBoVyg7qvn7w/viewform"
+                            class="footer-link">Join Our Volunteer Team</a></li>
+                </ul>
 
-            <div style="margin-top: 20px;">
-                <a href="#" class="social-icon" aria-label="Follow us on World Wide Web">🌐</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Facebook">📘</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Twitter">🐦</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Instagram">📸</a>
+                <div style="margin-top: 20px;">
+                    <a href="#" class="social-icon" aria-label="Follow us on World Wide Web">🌐</a>
+                    <a href="#" class="social-icon" aria-label="Follow us on Facebook">📘</a>
+                    <a href="#" class="social-icon" aria-label="Follow us on Twitter">🐦</a>
+                    <a href="#" class="social-icon" aria-label="Follow us on Instagram">📸</a>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div style="text-align: center; padding-top: 25px; border-top: 1px solid var(--border-color); margin-top: 50px;">
-        <p>&copy; 2025 Road Safety Club. Drive Smart, Live Safe.</p>
-    </div>
-
-    <div id="cursor-wrapper" class="cursor-wrapper">
-        <div class="single-segment">
-            <div class="segment-color red"></div>
-            <div class="segment-color yellow"></div>
-            <div class="segment-color green"></div>
+        <div
+            style="text-align: center; padding-top: 25px; border-top: 1px solid var(--border-color); margin-top: 50px;">
+            <p>&copy; 2025 Road Safety Club. Drive Smart, Live Safe.</p>
         </div>
-    </div>
-    <style>
-        /* CSS Variables for easy color changes */
-        :root {
-            --dark-bg: #1a1a1a;
-            --light-text: #fff;
-            --accent-color: #ffcc00;
-            /* Yellow */
-            --accent-hover: #e6b800;
-            --border-color: #444;
-        }
 
-        footer {
-            /* This ensures the font-family from the inline style is the starting point */
-            font-family: 'Poppins', Arial, sans-serif !important;
-        }
+        <div id="cursor-wrapper" class="cursor-wrapper">
+            <div class="single-segment">
+                <div class="segment-color red"></div>
+                <div class="segment-color yellow"></div>
+                <div class="segment-color green"></div>
+            </div>
+        </div>
+        <style>
+            /* CSS Variables for easy color changes */
+            :root {
+                --dark-bg: #1a1a1a;
+                --light-text: #fff;
+                --accent-color: #ffcc00;
+                /* Yellow */
+                --accent-hover: #e6b800;
+                --border-color: #444;
+            }
 
-        .footer-section {
-            flex: 1;
-            min-width: 280px;
-            margin-bottom: 20px;
-        }
+            footer {
+                /* This ensures the font-family from the inline style is the starting point */
+                font-family: 'Poppins', Arial, sans-serif !important;
+            }
 
-        /* General Link Styling */
-        .footer-link {
-            color: var(--light-text);
-            text-decoration: none;
-            transition: color 0.3s, transform 0.3s;
-            display: inline-block;
-        }
+            .footer-section {
+                flex: 1;
+                min-width: 280px;
+                margin-bottom: 20px;
+            }
 
-        .footer-link:hover {
-            color: var(--accent-color);
-            transform: translateX(5px);
-            /* Subtle shift */
-        }
+            /* General Link Styling */
+            .footer-link {
+                color: var(--light-text);
+                text-decoration: none;
+                transition: color 0.3s, transform 0.3s;
+                display: inline-block;
+            }
 
-        /* Team Contact List specific styling - removes the phone icon for this block */
-        .contact-list-link {
-            padding-left: 20px;
-            /* Indent slightly for visual hierarchy */
-        }
+            .footer-link:hover {
+                color: var(--accent-color);
+                transform: translateX(5px);
+                /* Subtle shift */
+            }
 
-        /* Social Icon Animation */
-        .social-icon {
-            color: var(--light-text);
-            font-size: 24px;
-            margin-right: 15px;
-            /* Use margin-right for spacing */
-            display: inline-block;
-            transition: transform 0.3s, color 0.3s;
-            text-decoration: none;
-        }
+            /* Team Contact List specific styling - removes the phone icon for this block */
+            .contact-list-link {
+                padding-left: 20px;
+                /* Indent slightly for visual hierarchy */
+            }
 
-        .social-icon:hover {
-            color: var(--accent-color);
-            transform: translateY(-5px) scale(1.1);
-            /* Lift and enlarge */
-        }
+            /* Social Icon Animation */
+            .social-icon {
+                color: var(--light-text);
+                font-size: 24px;
+                margin-right: 15px;
+                /* Use margin-right for spacing */
+                display: inline-block;
+                transition: transform 0.3s, color 0.3s;
+                text-decoration: none;
+            }
 
-        /* Back to Top Button hover */
-        .back-to-top-btn:hover {
-            background-color: var(--accent-hover);
-            transform: translateY(-3px) scale(1.02);
-            /* Lift and slightly enlarge */
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-        }
+            .social-icon:hover {
+                color: var(--accent-color);
+                transform: translateY(-5px) scale(1.1);
+                /* Lift and enlarge */
+            }
 
-        /* Clear focus state for accessibility */
-        .footer-link:focus,
-        .social-icon:focus,
-        .back-to-top-btn:focus {
-            outline: 2px solid var(--accent-color);
-            outline-offset: 3px;
-        }
+            /* Back to Top Button hover */
+            .back-to-top-btn:hover {
+                background-color: var(--accent-hover);
+                transform: translateY(-3px) scale(1.02);
+                /* Lift and slightly enlarge */
+                box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+            }
 
-        /* Specific Link Icons (A friendlier touch) - Applied only to General/Email links */
-        .phone-link::before {
-            content: '📞 ';
-            color: var(--accent-color);
-        }
+            /* Clear focus state for accessibility */
+            .footer-link:focus,
+            .social-icon:focus,
+            .back-to-top-btn:focus {
+                outline: 2px solid var(--accent-color);
+                outline-offset: 3px;
+            }
 
-        .email-link::before {
-            content: '📧 ';
-            color: var(--accent-color);
-        }
+            /* Specific Link Icons (A friendlier touch) - Applied only to General/Email links */
+            .phone-link::before {
+                content: '📞 ';
+                color: var(--accent-color);
+            }
 
-    </style>
-    
-</footer>
+            .email-link::before {
+                content: '📧 ';
+                color: var(--accent-color);
+            }
+        </style>
+
+    </footer>
 </body>
 
 </html>
 
-    
+
 
 </body>
 
 </html>
-
-
-
-
