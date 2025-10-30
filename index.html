@@ -16,6 +16,597 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
+    <!-- === FIREBASE SDKs === -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import {
+            getAuth,
+            onAuthStateChanged,
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            signOut,
+            signInWithCustomToken,
+            signInAnonymously
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import {
+            getFirestore,
+            doc,
+            setDoc,
+            setLogLevel,
+            getDoc
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+        const firebaseConfig = {
+            apiKey: "AIzaSyAhRd4r8xBzJFKpgAIgXoR1rsun0F7p4_Q",
+            authDomain: "road-safety05.firebaseapp.com",
+            databaseURL: "https://road-safety05-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "road-safety05",
+            storageBucket: "road-safety05.firebasestorage.app",
+            messagingSenderId: "710275213811",
+            appId: "1:710275213811:web:6a66835798ae912d47ca86",
+            measurementId: "G-70YQ76X8H1"
+        };
+
+        const finalFirebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
+
+        // Initialize Firebase
+        const app = initializeApp(finalFirebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        setLogLevel('debug');
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // --- NEW: Helper function to format email as name ---
+        const formatEmailAsName = (email) => {
+            if (!email || email.indexOf('@') === -1) return 'User'; // Return 'User' if no email or invalid
+            try {
+                const namePart = email.split('@')[0];
+                return namePart
+                    .split(/[\._\-]/) // Split by dot, underscore, or dash
+                    .map(part => part.charAt(0).toUpperCase() + part.slice(1)) // Capitalize each part
+                    .join(' '); // Join with space
+            } catch (e) {
+                console.warn("Could not format email:", email, e);
+                return 'User'; // Fallback
+            }
+        };
+        // --- END NEW ---
+
+        // --- FIX: Wait for DOM to be loaded before accessing elements ---
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- AUTHENTICATION LOGIC ---
+
+            // Get elements for showing auth state
+            const navAuthLinks = document.getElementById('nav-auth-links'); // Container for Login/Sign Up
+            const navUserInfo = document.getElementById('nav-user-info');
+            const navUserInitial = document.getElementById('nav-user-initial'); // <-- CHANGED
+            const navLogoutBtn = document.getElementById('nav-logout-btn');
+
+            // --- FIX 2: Moved these definitions up ---
+            // Get elements for dynamic content
+            const communityLoginPrompt = document.getElementById('community-login-prompt');
+            const communityRegisterView = document.getElementById('community-register-view');
+            const communityProfileView = document.getElementById('community-profile-view');
+            const communityProfileName = document.getElementById('community-profile-name');
+            const communityRegisterTitle = document.getElementById('community-register-title');
+            const communityRegisterSubtitle = document.getElementById('community-register-subtitle');
+
+            // --- NEW: Profile Dropdown Elements ---
+            const profileDropdownName = document.getElementById('profile-dropdown-name');
+            const profileDropdownContact = document.getElementById('profile-dropdown-contact');
+            // --- END NEW ---
+
+            // --- NEW: Referral Modal Elements ---
+            const referralCodeInput = document.getElementById('referral-code');
+            const referralCopyBtn = document.getElementById('referral-copy-btn');
+            // --- END NEW ---
+
+
+            // Listen for authentication state changes (login/logout)
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    // User is signed in
+                    console.log('User logged in:', user.email);
+                    navAuthLinks.style.display = 'none'; // Hide Login/Sign Up
+                    navUserInfo.style.display = 'flex';
+                    // navUserEmail.textContent = user.email; // <-- REMOVED
+
+                    // --- LOGIC TO FETCH USER ROLE AND NAME ---
+                    let userRole = 'unknown';
+                    let userName = formatEmailAsName(user.email); // Default to formatted email
+                    const userId = user.uid;
+                    const userDocRef = doc(db, 'artifacts', appId, 'users', userId);
+
+                    let userData = {}; // --- FIX 3: Initialize userData ---
+
+                    try {
+                        const userDoc = await getDoc(userDocRef);
+                        if (userDoc.exists()) {
+                            userData = userDoc.data(); // --- FIX 3: Assign userData here ---
+                            userRole = userData.role || 'unknown';
+
+                            // Get name based on role
+                            if (userRole === 'driver') userName = userData.name || formatEmailAsName(user.email);
+                            else if (userRole === 'traveler') userName = userData.name || formatEmailAsName(user.email);
+                            else if (userRole === 'emergency') userName = userData.operatorName || formatEmailAsName(user.email);
+                            else userName = user.isAnonymous ? 'Guest' : formatEmailAsName(user.email); // No role yet or anonymous
+
+                        } else {
+                            if (!user.isAnonymous) {
+                                console.warn("User document not found for UID:", userId, "Creating one.");
+                                // This is a new user who just signed up, create a base doc
+                                await setDoc(userDocRef, {
+                                    email: user.email,
+                                    role: 'unknown',
+                                    createdAt: new Date().toISOString()
+                                });
+                                userRole = 'unknown';
+                            } else {
+                                userRole = 'guest';
+                                userName = 'Guest';
+                            }
+                        }
+
+                        // --- NEW: Populate Profile Dropdown ---
+                        // --- FIX 3: This code is now safe because userData is always an object ---
+                        let userPhone = userData.phone || (user.isAnonymous ? 'Anonymous Guest' : 'No contact info');
+                        if (profileDropdownName) profileDropdownName.textContent = userName;
+                        if (profileDropdownContact) profileDropdownContact.textContent = userPhone;
+                        // --- END NEW ---
+
+                        // --- NEW: Populate Referral Code ---
+                        if (referralCodeInput) {
+                            // Generate a simple code from the user's ID
+                            referralCodeInput.value = `SR-${userId.substring(0, 6).toUpperCase()}`;
+                        }
+                        // --- END NEW ---
+
+                    } catch (error) {
+                        console.error("Error fetching user document:", error);
+                    }
+
+                    // --- NEW LOGIC FOR PROFILE INITIAL ---
+                    if (navUserInitial) {
+                        let initial = 'G'; // Default 'Guest'
+                        if (userName) {
+                            initial = userName.charAt(0).toUpperCase();
+                        }
+                        navUserInitial.textContent = initial;
+                    }
+                    // --- END NEW LOGIC ---
+
+                    // --- NEW LOGIC TO SHOW CORRECT COMMUNITY VIEW ---
+                    // --- FIX 2: These variables are now defined and this block will work ---
+                    if (userRole === 'driver' || userRole === 'traveler' || userRole === 'emergency') {
+                        // User is logged in AND has a role
+                        communityLoginPrompt.style.display = 'none';
+                        communityRegisterView.style.display = 'none';
+                        communityProfileView.style.display = 'block';
+
+                        communityProfileName.textContent = userName;
+                        communityProfileView.className = `profile-view-${userRole}`;
+                        if (navUserInfo) navUserInfo.className = `dropdown profile-role-${userRole}`; // <!-- ADDED LINE -->
+                    } else {
+                        // User is logged in but has NO role (e.g., 'unknown' or 'guest')
+                        communityLoginPrompt.style.display = 'none';
+                        communityRegisterView.style.display = 'block'; // Show role selection
+                        communityProfileView.style.display = 'none';
+                        if (navUserInfo) navUserInfo.className = `dropdown profile-role-${userRole}`; // <!-- ADDED LINE -->
+
+                        // Update titles to prompt for profile completion
+                        communityRegisterTitle.innerHTML = '<i class="fas fa-user-plus"></i> Complete Your Profile';
+                        communityRegisterSubtitle.textContent = 'You are logged in. Please select your role in the community to continue.';
+                    }
+
+                    closeModal(); // Hide any open auth modals
+
+                } else {
+                    // User is signed out
+                    console.log('User logged out');
+                    navAuthLinks.style.display = 'flex'; // Show Login/Sign Up
+                    navUserInfo.style.display = 'none';
+                    if (navUserInitial) navUserInitial.textContent = ''; // <-- ADDED: Clear initial
+                    if (navUserInfo) navUserInfo.className = 'dropdown'; // <!-- ADDED LINE -->
+
+                    // --- NEW: Reset Profile Dropdown ---
+                    if (profileDropdownName) profileDropdownName.textContent = 'Guest';
+                    if (profileDropdownContact) profileDropdownContact.textContent = 'Please log in';
+                    // --- END NEW ---
+
+                    // --- NEW: Reset Referral Code ---
+                    if (referralCodeInput) referralCodeInput.value = 'LOGIN-TO-SEE-CODE';
+                    // --- END NEW ---
+
+                    // --- FIX 2: These variables are now defined and this block will work ---
+                    // Show the default "login prompt" view
+                    communityLoginPrompt.style.display = 'block';
+                    communityRegisterView.style.display = 'none';
+                    communityProfileView.style.display = 'none';
+                    communityProfileView.className = '';
+                }
+            });
+
+            // Sign in with custom token if available, otherwise anonymously
+            (async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Error during initial authentication:", error);
+                }
+            })();
+
+
+            // --- Get all modal elements ---
+            const regModal = document.getElementById('reg-modal');
+            const regCloseBtn = regModal.querySelector('.reg-form-close');
+
+            // Form Wrappers
+            const loginFormWrapper = document.getElementById('login-form-wrapper');
+            const signupFormWrapper = document.getElementById('signup-form-wrapper'); // NEW
+            const driverFormWrapper = document.getElementById('driver-form-wrapper');
+            const emergencyFormWrapper = document.getElementById('emergency-form-wrapper');
+            const travelerFormWrapper = document.getElementById('traveler-form-wrapper');
+
+            // Forms
+            const loginForm = document.getElementById('login-form');
+            const signupForm = document.getElementById('signup-form'); // NEW
+            const driverForm = document.getElementById('driver-registration-form');
+            const emergencyForm = document.getElementById('emergency-registration-form');
+            const travelerForm = document.getElementById('traveler-registration-form');
+
+            // Success Messages
+            const driverSuccess = document.getElementById('driver-success-message');
+            const emergencySuccess = document.getElementById('emergency-success-message');
+            const travelerSuccess = document.getElementById('traveler-success-message');
+
+            // Error Messages
+            const loginError = document.getElementById('login-error');
+            const signupError = document.getElementById('signup-error'); // NEW
+            const driverRegError = document.getElementById('driver-reg-error');
+            const travelerRegError = document.getElementById('traveler-reg-error');
+            const emergencyRegError = document.getElementById('emergency-reg-error');
+
+            // Map Containers
+            const driverMapContainer = document.getElementById('driver-map-container');
+            const emergencyMapContainer = document.getElementById('emergency-map-container');
+
+            // --- Modal Control Functions ---
+            const allFormWrappers = [loginFormWrapper, signupFormWrapper, driverFormWrapper, emergencyFormWrapper, travelerFormWrapper];
+            const allSuccessMessages = [driverSuccess, emergencySuccess, travelerSuccess];
+            const allErrorMessages = [loginError, signupError, driverRegError, travelerRegError, emergencyRegError];
+
+            // Reset all modal content
+            const resetModalForms = () => {
+                allFormWrappers.forEach(form => {
+                    if (form) form.style.display = 'none';
+                });
+                allSuccessMessages.forEach(msg => {
+                    if (msg) msg.style.display = 'none';
+                });
+                allErrorMessages.forEach(msg => {
+                    if (msg) {
+                        msg.style.display = 'none';
+                        msg.textContent = '';
+                    }
+                });
+
+                // Reset the forms themselves
+                if (loginForm) loginForm.reset();
+                if (signupForm) signupForm.reset(); // NEW
+                if (driverForm) driverForm.reset();
+                if (emergencyForm) emergencyForm.reset();
+                if (travelerForm) travelerForm.reset();
+
+                if (driverMapContainer) {
+                    driverMapContainer.style.display = 'none';
+                    driverMapContainer.innerHTML = '';
+                }
+                if (emergencyMapContainer) {
+                    emergencyMapContainer.style.display = 'none';
+                    emergencyMapContainer.innerHTML = '';
+                }
+            };
+
+            // Close Modal
+            const closeModal = () => {
+                if (regModal) regModal.classList.remove('active');
+                setTimeout(resetModalForms, 300);
+            };
+
+            if (regCloseBtn) regCloseBtn.addEventListener('click', closeModal);
+            if (regModal) regModal.addEventListener('click', (e) => {
+                if (e.target === regModal) {
+                    closeModal();
+                }
+            });
+
+            // --- EVENT LISTENERS ---
+
+            // 1. Listen for clicks on "Login" button in nav
+            const navLoginBtn = document.getElementById('nav-login-btn');
+            if (navLoginBtn) {
+                navLoginBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    resetModalForms();
+                    if (loginFormWrapper) loginFormWrapper.style.display = 'block';
+                    if (regModal) regModal.classList.add('active');
+                });
+            }
+
+            // 2. NEW: Listen for clicks on "Sign Up" button in nav
+            const navSignupBtn = document.getElementById('nav-signup-btn');
+            if (navSignupBtn) {
+                navSignupBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    resetModalForms();
+                    if (signupFormWrapper) signupFormWrapper.style.display = 'block';
+                    if (regModal) regModal.classList.add('active');
+                });
+            }
+
+            // 3. Listen for clicks on the "Logout" button
+            if (navLogoutBtn) {
+                navLogoutBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    try {
+                        await signOut(auth);
+                    } catch (error) {
+                        console.error("Error signing out:", error);
+                    }
+                });
+            }
+
+            // 4. Listen for clicks on the role registration cards (Driver, Traveler, Emergency)
+            document.querySelectorAll('.reg-card[data-form-type]').forEach(card => {
+                card.addEventListener('click', () => {
+                    resetModalForms();
+                    const formType = card.dataset.formType;
+
+                    if (formType === 'driver') {
+                        if (driverFormWrapper) driverFormWrapper.style.display = 'block';
+                    } else if (formType === 'emergency') {
+                        if (emergencyFormWrapper) emergencyFormWrapper.style.display = 'block';
+                    } else if (formType === 'traveler') {
+                        if (travelerFormWrapper) travelerFormWrapper.style.display = 'block';
+                    }
+
+                    if (regModal) regModal.classList.add('active');
+                });
+            });
+
+            // --- FORM SUBMISSION LOGIC ---
+
+            // 1. Handle Login Form Submission
+            if (loginForm) {
+                loginForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = loginForm.loginEmail.value;
+                    const password = loginForm.loginPassword.value;
+                    if (loginError) loginError.style.display = 'none';
+
+                    try {
+                        await signInWithEmailAndPassword(auth, email, password);
+                        // Auth listener (onAuthStateChanged) will handle UI changes
+                        closeModal();
+                    } catch (error) {
+                        console.error("Login Error:", error.message);
+                        if (loginError) {
+                            loginError.textContent = `Login Failed: ${error.message}`;
+                            loginError.style.display = 'block';
+                        }
+                    }
+                });
+            }
+
+            // 2. NEW: Handle Sign Up Form Submission
+            if (signupForm) {
+                signupForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const email = signupForm.signupEmail.value;
+                    const password = signupForm.signupPassword.value;
+                    const confirmPassword = signupForm.signupConfirmPassword.value;
+                    if (signupError) signupError.style.display = 'none';
+
+                    if (password.length < 6) {
+                        if (signupError) {
+                            signupError.textContent = 'Password must be at least 6 characters long.';
+                            signupError.style.display = 'block';
+                        }
+                        return;
+                    }
+
+                    if (password !== confirmPassword) {
+                        if (signupError) {
+                            signupError.textContent = 'Passwords do not match.';
+                            signupError.style.display = 'block';
+                        }
+                        return;
+                    }
+
+                    try {
+                        // Step 1: Create user in Auth
+                        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                        const user = userCredential.user;
+                        const userId = user.uid;
+
+                        // Step 2: Create a basic user doc in Firestore with 'unknown' role
+                        // onAuthStateChanged will see this 'unknown' role and prompt user to select one
+                        await setDoc(doc(db, 'artifacts', appId, 'users', userId), {
+                            email: email,
+                            role: 'unknown',
+                            createdAt: new Date().toISOString()
+                        });
+
+                        // Auth listener (onAuthStateChanged) will handle UI changes
+                        closeModal();
+
+                    } catch (error) {
+                        console.error("Sign Up Error:", error.message);
+                        if (signupError) {
+                            signupError.textContent = `Sign Up Failed: ${error.message}`;
+                            signupError.style.display = 'block';
+                        }
+                    }
+                });
+            }
+
+            // 3. Handle Driver Registration (Role Completion)
+            if (driverForm) {
+                driverForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    if (driverRegError) driverRegError.style.display = 'none';
+
+                    const user = auth.currentUser;
+                    if (!user) {
+                        if (driverRegError) {
+                            driverRegError.textContent = 'You are not logged in. Please log in first.';
+                            driverRegError.style.display = 'block';
+                        }
+                        return;
+                    }
+
+                    const formData = new FormData(driverForm);
+                    const data = Object.fromEntries(formData.entries());
+                    const { driverName, driverPhone, vehicleType, licensePlate, vehicleMake, vehicleModel, driverDestination } = data;
+
+                    try {
+                        const userId = user.uid;
+                        const userData = {
+                            email: user.email, // Get email from the logged-in user
+                            name: driverName,
+                            phone: driverPhone,
+                            role: 'driver', // Set the role
+                            vehicleType: vehicleType,
+                            licensePlate: licensePlate,
+                            vehicleMake: vehicleMake,
+                            vehicleModel: vehicleModel,
+                            destination: driverDestination,
+                            createdAt: new Date().toISOString() // Or update, but new timestamp is fine
+                        };
+
+                        await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData);
+
+                        // Show success
+                        if (driverFormWrapper) driverFormWrapper.style.display = 'none';
+                        if (driverSuccess) driverSuccess.style.display = 'block';
+                        setTimeout(closeModal, 2500);
+
+                    } catch (error) {
+                        console.error("Driver Registration Error:", error.message);
+                        if (driverRegError) {
+                            driverRegError.textContent = `Registration Failed: ${error.message}`;
+                            driverRegError.style.display = 'block';
+                        }
+                    }
+                });
+            }
+
+            // 4. Handle Traveler Registration (Role Completion)
+            if (travelerForm) {
+                travelerForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    if (travelerRegError) travelerRegError.style.display = 'none';
+
+                    const user = auth.currentUser;
+                    if (!user) {
+                        if (travelerRegError) {
+                            travelerRegError.textContent = 'You are not logged in. Please log in first.';
+                            travelerRegError.style.display = 'block';
+                        }
+                        return;
+                    }
+
+                    const formData = new FormData(travelerForm);
+                    const data = Object.fromEntries(formData.entries());
+                    const { travelerName, travelerPhone, travelerLocation } = data;
+
+                    try {
+                        const userId = user.uid;
+                        const userData = {
+                            email: user.email, // Get email from logged-in user
+                            name: travelerName,
+                            phone: travelerPhone,
+                            role: 'traveler', // Set the role
+                            defaultLocation: travelerLocation,
+                            createdAt: new Date().toISOString()
+                        };
+
+                        await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData);
+
+                        if (travelerFormWrapper) travelerFormWrapper.style.display = 'none';
+                        if (travelerSuccess) travelerSuccess.style.display = 'block';
+                        setTimeout(closeModal, 2500);
+
+                    } catch (error) {
+                        console.error("Traveler Registration Error:", error.message);
+                        if (travelerRegError) {
+                            travelerRegError.textContent = `Registration Failed: ${error.message}`;
+                            travelerRegError.style.display = 'block';
+                        }
+                    }
+                });
+            }
+
+            // 5. Handle Emergency Registration (Role Completion)
+            if (emergencyForm) {
+                emergencyForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    if (emergencyRegError) emergencyRegError.style.display = 'none';
+
+                    const user = auth.currentUser;
+                    if (!user) {
+                        if (emergencyRegError) {
+                            emergencyRegError.textContent = 'You are not logged in. Please log in first.';
+                            emergencyRegError.style.display = 'block';
+                        }
+                        return;
+                    }
+
+                    const formData = new FormData(emergencyForm);
+                    const data = Object.fromEntries(formData.entries());
+                    const { serviceType, serviceId, serviceName, servicePhone, serviceVehicleId, serviceVehicleType, emergencyDestination } = data;
+
+                    try {
+                        const userId = user.uid;
+                        const serviceData = {
+                            email: user.email, // Get email from logged-in user
+                            operatorName: serviceName,
+                            phone: servicePhone,
+                            role: 'emergency', // Set the role
+                            serviceType: serviceType,
+                            serviceId: serviceId,
+                            vehicleId: serviceVehicleId,
+                            vehicleType: serviceVehicleType,
+                            destination: emergencyDestination,
+                            bestRoute: formData.has('bestRoute'),
+                            createdAt: new Date().toISOString()
+                        };
+
+                        await setDoc(doc(db, 'artifacts', appId, 'users', userId), serviceData);
+
+                        if (emergencyFormWrapper) emergencyFormWrapper.style.display = 'none';
+                        if (emergencySuccess) emergencySuccess.style.display = 'block';
+                        setTimeout(closeModal, 2500);
+
+                    } catch (error) {
+                        console.error("Emergency Registration Error:", error.message);
+                        if (emergencyRegError) {
+                            emergencyRegError.textContent = `Registration Failed: ${error.message}`;
+                            emergencyRegError.style.display = 'block';
+                        }
+                    }
+                });
+            }
+        }); // --- End of DOMContentLoaded ---
+    </script>
+
     <style>
         :root {
             --primary-color: #ff4d4d;
@@ -62,6 +653,9 @@
             line-height: 1.6;
             min-height: 100vh;
             overflow-x: hidden;
+            /* === NEW STICKY FOOTER STYLES === */
+            display: flex;
+            flex-direction: column;
         }
 
         /* =========================================== */
@@ -329,13 +923,7 @@
             left: 0;
         }
 
-        .nav-links li:not(.dropdown) a:hover::after {
-            width: 100%;
-        }
-
-        .nav-links a:hover {
-            color: var(--primary-color);
-        }
+        /* === END NEW === */
 
         .nav-links li.dropdown:hover>a {
             color: var(--primary-color);
@@ -380,6 +968,897 @@
         .nav-links li.dropdown:hover .dropdown-menu {
             display: block;
         }
+
+        /* --- NEW: Profile Dropdown Menu Styles --- */
+        #nav-user-info {
+            cursor: pointer;
+            position: relative;
+            /* Needed for the dropdown */
+        }
+
+        /* === NEW: Profile Initial Circle Style === */
+        #nav-user-initial {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2em;
+            font-weight: 700;
+            font-family: 'Montserrat', sans-serif;
+            border: 2px solid #fff;
+            transition: all 0.3s ease;
+        }
+
+        #nav-user-info:hover #nav-user-initial {
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(255, 77, 77, 0.7);
+        }
+
+        /* === END NEW === */
+
+        /* --- NEW: Profile Icon Color by Role --- */
+        .profile-role-traveler #nav-user-initial {
+            background: #007bff;
+            border-color: #f0f7ff;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.7);
+        }
+
+        .profile-role-traveler:hover #nav-user-initial {
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.7);
+        }
+
+        .profile-role-driver #nav-user-initial {
+            background: #4CAF50;
+            border-color: #f0fff0;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.7);
+        }
+
+        .profile-role-driver:hover #nav-user-initial {
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.7);
+        }
+
+        .profile-role-emergency #nav-user-initial {
+            background: var(--primary-color);
+            /* Already red */
+            border-color: #fff0f0;
+            box-shadow: 0 0 10px rgba(255, 77, 77, 0.7);
+        }
+
+        .profile-role-emergency:hover #nav-user-initial {
+            box-shadow: 0 0 10px rgba(255, 77, 77, 0.7);
+        }
+
+        /* --- END NEW --- */
+
+        .dropdown-menu#profile-dropdown-menu {
+            display: none;
+            /* Hidden by default */
+            position: absolute;
+            top: 100%;
+            /* Position below the icon */
+            right: 0;
+            /* Align to the right */
+            left: auto;
+            background: #fff;
+            /* Light background */
+            color: var(--secondary-color);
+            min-width: 300px;
+            /* Wider than other menus */
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            border-radius: 12px;
+            padding: 0;
+            margin-top: 10px;
+            /* Space from icon */
+            z-index: 2000;
+            border: 1px solid #eee;
+            overflow: hidden;
+            /* For border-radius on items */
+
+            /* Animation */
+            transform-origin: top right;
+            transition: all 0.2s ease-out;
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+        }
+
+        .dropdown-menu#profile-dropdown-menu.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Stop CSS hover from opening this specific menu */
+        .nav-links li.dropdown:hover .dropdown-menu#profile-dropdown-menu {
+            display: none;
+        }
+
+        /* ...but allow it to stay open if active */
+        .nav-links li.dropdown:hover .dropdown-menu#profile-dropdown-menu.active {
+            display: block;
+        }
+
+        #profile-dropdown-menu li {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        /* Special Header Item */
+        .profile-dropdown-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .profile-dropdown-header .icon {
+            font-size: 1.8em;
+            color: var(--primary-color);
+            background: #fef0f0;
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .profile-dropdown-header .details {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .profile-dropdown-header h4 {
+            margin: 0;
+            font-size: 1.1em;
+            color: #222;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .profile-dropdown-header p {
+            margin: 0;
+            font-size: 0.9em;
+            color: #777;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Standard Menu Items */
+        #profile-dropdown-menu li a {
+            color: #333;
+            /* Dark text for links */
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-weight: 600;
+            padding: 15px 20px;
+            font-size: 1em;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+
+        #profile-dropdown-menu li a::after {
+            display: none;
+            /* Remove underline effect */
+        }
+
+        #profile-dropdown-menu li a i {
+            width: 25px;
+            text-align: center;
+            color: var(--primary-color);
+            font-size: 1.2em;
+        }
+
+        #profile-dropdown-menu li a .chevron {
+            margin-left: auto;
+            color: #aaa;
+            font-size: 0.9em;
+            transition: color 0.2s ease;
+        }
+
+        #profile-dropdown-menu li a:hover {
+            background: #f9f9f9;
+            color: var(--primary-color);
+            /* Hover color */
+        }
+
+        #profile-dropdown-menu li a:hover .chevron {
+            color: var(--primary-color);
+        }
+
+        /* Special item styles */
+        .profile-menu-rating {
+            background: #fdfaf0;
+            /* Light yellow bg */
+        }
+
+        .profile-menu-rating a:hover {
+            background: #fbf5e6;
+        }
+
+        .profile-menu-rating a i.fa-star {
+            color: #f39c12;
+            /* Star color */
+        }
+
+        #profile-dropdown-menu li.logout-item a {
+            color: var(--primary-color);
+            /* Red for logout */
+        }
+
+        #profile-dropdown-menu li.logout-item a:hover {
+            background: #fef0f0;
+        }
+
+        /* --- END NEW Profile Dropdown Styles --- */
+
+
+        /* --- NEW: Generic Profile Modal Styles --- */
+        .profile-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            z-index: 9998;
+            /* Below reg-modal (9999) but above rest */
+            padding: 20px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .profile-modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .profile-modal-content {
+            background: #fff;
+            color: var(--secondary-color);
+            border-radius: 12px;
+            padding: 30px 40px;
+            max-width: 500px;
+            width: 100%;
+            position: relative;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+        }
+
+        .profile-modal-overlay.active .profile-modal-content {
+            transform: scale(1);
+        }
+
+        .profile-modal-content h2 {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--primary-color);
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Make sure modal h2 styles don't conflict */
+        .profile-modal-content h2 {
+            color: var(--primary-color) !important;
+            border-bottom: 2px solid #eee !important;
+        }
+
+
+        .profile-modal-content p {
+            font-size: 1em;
+            color: #555;
+            line-height: 1.6;
+        }
+
+        .profile-modal-close {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 28px;
+            color: #aaa;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .profile-modal-close:hover {
+            color: var(--primary-color);
+        }
+
+        /* --- END NEW Profile Modal Styles --- */
+
+        /* --- NEW: Styles for Rating Modal --- */
+        .star-rating-container {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            font-size: 2.5em;
+            /* Bigger stars */
+            color: #ccc;
+            margin: 20px 0 25px;
+            cursor: pointer;
+        }
+
+        .star-rating-container .star {
+            transition: color 0.2s, transform 0.2s;
+        }
+
+        /* Hover effect: all stars up to and including the hovered one */
+        .star-rating-container:hover .star {
+            color: var(--accent-color);
+        }
+
+        .star-rating-container .star:hover~.star {
+            color: #ccc;
+        }
+
+        /* Selected stars (after click) */
+        .star-rating-container .star.selected {
+            color: var(--accent-color);
+            transform: scale(1.1);
+        }
+
+        /* Keep hover effect working */
+        .star-rating-container:hover .star.selected {
+            color: var(--accent-color);
+        }
+
+        .star-rating-container .star.selected:hover~.star {
+            color: #ccc;
+        }
+
+        .star-rating-container .star.selected~.star {
+            color: #ccc;
+        }
+
+
+        .review-textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            font-family: 'Open Sans', sans-serif;
+            resize: vertical;
+            margin-bottom: 20px;
+        }
+
+        .review-textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 5px rgba(255, 77, 77, 0.3);
+        }
+
+        .submit-review-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .submit-review-btn:hover {
+            background: var(--hover-color);
+        }
+
+        #rating-modal .success-message {
+            /* display: none; */
+            /* Handled inline */
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        #rating-modal .success-message i {
+            font-size: 3em;
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+
+        #rating-modal .success-message h3 {
+            color: var(--secondary-color);
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        #rating-modal .success-message p {
+            color: #666;
+            font-size: 1em;
+        }
+
+        /* --- END Rating Modal Styles --- */
+
+        /* --- NEW: Styles for FAQ in Help Modal --- */
+        .faq-accordion {
+            margin-top: 25px;
+        }
+
+        .faq-item {
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            overflow: hidden;
+            /* To contain details */
+        }
+
+        .faq-title {
+            padding: 15px 20px;
+            font-weight: 600;
+            color: var(--secondary-color);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+
+        .faq-title:hover {
+            background: #f1f1f1;
+        }
+
+        .faq-chevron {
+            font-size: 0.9em;
+            color: #aaa;
+            transition: transform 0.3s ease, color 0.3s ease;
+        }
+
+        .faq-item.active .faq-title {
+            color: var(--primary-color);
+        }
+
+        .faq-item.active .faq-chevron {
+            transform: rotate(90deg);
+            color: var(--primary-color);
+        }
+
+        .faq-details {
+            max-height: 0;
+            opacity: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-out, opacity 0.3s ease-out, padding 0.4s ease-out;
+            padding: 0 20px;
+            color: #555;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        .faq-details.open {
+            opacity: 1;
+            padding: 0 20px 20px;
+            /* Add bottom padding when open */
+        }
+
+        .faq-details p {
+            margin: 0;
+        }
+
+        .faq-details a {
+            color: var(--primary-color);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .faq-details a:hover {
+            text-decoration: underline;
+        }
+
+        /* --- END FAQ Styles --- */
+
+        /* --- NEW: Styles for Wallet Modal --- */
+        #payment-modal .wallet-balance {
+            background: linear-gradient(135deg, var(--secondary-color), #444);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        #payment-modal .wallet-balance p {
+            font-size: 1.1em;
+            color: #eee;
+            margin: 0;
+        }
+
+        #payment-modal .wallet-balance h3 {
+            font-size: 3em;
+            color: white;
+            margin: 5px 0 15px;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        .add-money-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .add-money-btn:hover {
+            background: var(--hover-color);
+        }
+
+        #add-money-section {
+            display: none;
+            /* Hidden by default */
+            padding: 20px;
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        #add-money-section .form-group {
+            margin-bottom: 15px;
+        }
+
+        #add-money-section .form-group label {
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+
+        #add-money-section .form-group input {
+            padding: 10px 12px;
+            font-size: 1.2em;
+        }
+
+        #payment-modal h4 {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--secondary-color);
+            font-size: 1.2em;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .saved-payment-method {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #fdfdfd;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .saved-payment-method .icon {
+            font-size: 2.2em;
+            color: #007bff;
+            /* Visa blue */
+        }
+
+        .saved-payment-method .details {
+            flex-grow: 1;
+        }
+
+        .saved-payment-method .details p {
+            font-size: 1em;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+
+        .saved-payment-method .details span {
+            font-size: 0.9em;
+            color: #777;
+        }
+
+        .saved-payment-method .remove-btn {
+            font-size: 0.9em;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-weight: 600;
+            background: none;
+            border: none;
+        }
+
+        .saved-payment-method .remove-btn:hover {
+            text-decoration: underline;
+        }
+
+        /* --- END Wallet Styles --- */
+
+        /* --- NEW: Styles for My Rides Modal --- */
+        .ride-history-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .ride-item {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+        }
+
+        .ride-item .icon {
+            font-size: 1.8em;
+            color: var(--primary-color);
+        }
+
+        .ride-item .ride-details {
+            flex-grow: 1;
+        }
+
+        .ride-item .ride-details p {
+            font-size: 1em;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+
+        .ride-item .ride-details span {
+            font-size: 0.9em;
+            color: #777;
+            display: block;
+        }
+
+        .ride-item .ride-price {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: var(--secondary-color);
+        }
+
+        /* --- NEW: Styles for Safety Modal --- */
+        .safety-features {
+            display: flex;
+            gap: 15px;
+            margin: 25px 0;
+        }
+
+        .safety-feature-btn {
+            flex: 1;
+            padding: 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .safety-feature-btn i {
+            font-size: 1.8em;
+        }
+
+        .safety-feature-btn.share-btn {
+            background: #007bff;
+            color: white;
+        }
+
+        .safety-feature-btn.share-btn:hover {
+            background: #0056b3;
+            transform: translateY(-3px);
+        }
+
+        .safety-feature-btn.sos-btn {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .safety-feature-btn.sos-btn:hover {
+            background: var(--hover-color);
+            transform: translateY(-3px);
+        }
+
+        .safety-tips-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+
+        .safety-tips-list li {
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.95em;
+        }
+
+        .safety-tips-list li i {
+            color: #4CAF50;
+            font-size: 1.2em;
+        }
+
+        /* --- END Safety & Rides Styles --- */
+
+        /* --- NEW: Styles for Refer & Rewards Modals --- */
+        #refer-modal .referral-code-box {
+            display: flex;
+            margin: 25px 0;
+            border: 2px dashed var(--primary-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #referral-code {
+            flex-grow: 1;
+            padding: 15px;
+            font-size: 1.4em;
+            font-weight: 700;
+            color: var(--secondary-color);
+            border: none;
+            background: #fdf0f0;
+            font-family: 'Montserrat', sans-serif;
+            text-align: center;
+        }
+
+        #referral-code:focus {
+            outline: none;
+        }
+
+        #referral-copy-btn {
+            padding: 0 20px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #referral-copy-btn:hover {
+            background: var(--hover-color);
+        }
+
+        #referral-copy-btn:active {
+            transform: scale(0.95);
+        }
+
+        #refer-modal .social-share-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .social-share-btn {
+            font-size: 1.8em;
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+
+        .social-share-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .social-share-btn.whatsapp {
+            background: #25D366;
+        }
+
+        .social-share-btn.twitter {
+            background: #1DA1F2;
+        }
+
+        .social-share-btn.facebook {
+            background: #1877F2;
+        }
+
+        .social-share-btn.sms {
+            background: #777;
+        }
+
+        .rewards-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .reward-item {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 5px solid var(--accent-color);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .reward-item .icon {
+            font-size: 2.5em;
+            color: var(--accent-color);
+        }
+
+        .reward-item .details {
+            flex-grow: 1;
+        }
+
+        .reward-item .details h4 {
+            font-size: 1.1em;
+            color: var(--secondary-color);
+            margin: 0 0 5px;
+            padding: 0;
+            border: none;
+        }
+
+        .reward-item .details p {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .reward-item .claim-btn {
+            background: var(--accent-color);
+            color: var(--secondary-color);
+            border: none;
+            padding: 8px 15px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .reward-item .claim-btn:hover {
+            background: var(--accent-hover);
+        }
+
+        /* --- END Refer & Rewards Styles --- */
+
 
         header {
             margin-top: 70px;
@@ -573,6 +2052,57 @@
             line-height: 1.7;
         }
 
+        /* === NEW: Style for the logged-out prompt === */
+        #community-login-prompt {
+            text-align: center;
+        }
+
+        #community-login-prompt p {
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 1.5em;
+        }
+
+        .community-login-btns {
+            display: flex;
+            justify-content: center;
+            gap: 1em;
+            flex-wrap: wrap;
+        }
+
+        .community-login-btns .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: white;
+        }
+
+        .community-login-btns .btn-primary {
+            background: var(--primary-color);
+        }
+
+        .community-login-btns .btn-primary:hover {
+            background: var(--hover-color);
+            transform: scale(1.05);
+        }
+
+        .community-login-btns .btn-secondary {
+            background: #007bff;
+        }
+
+        .community-login-btns .btn-secondary:hover {
+            background: #0056b3;
+            transform: scale(1.05);
+        }
+
+        /* === END NEW === */
+
+
         .registration-options {
             display: flex;
             gap: 1.5em;
@@ -709,6 +2239,21 @@
             position: relative;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
         }
+
+        /* === NEW: Hide wrappers by default === */
+        #login-form-wrapper,
+        #signup-form-wrapper,
+        #driver-form-wrapper,
+        #emergency-form-wrapper,
+        #traveler-form-wrapper,
+        #driver-success-message,
+        #emergency-success-message,
+        #traveler-success-message {
+            display: none;
+        }
+
+        /* === END NEW === */
+
 
         .reg-form-close {
             position: absolute;
@@ -1251,6 +2796,96 @@
             color: var(--footer-accent);
         }
 
+        /* Simple error message style for forms */
+        .form-error {
+            color: var(--primary-color);
+            background: #ffecec;
+            border: 1px solid var(--primary-color);
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin-bottom: 15px;
+            display: none;
+            /* Hidden by default */
+            text-align: center;
+            font-weight: 600;
+        }
+
+        /* === NEW PROFILE VIEW STYLES === */
+        #community-profile-view {
+            border: 4px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2em;
+            background: #f9f9f9;
+            transition: all 0.3s ease;
+        }
+
+        /* Driver Profile = Green */
+        .profile-view-driver {
+            border-color: #4CAF50 !important;
+            background: #f0fff0 !important;
+        }
+
+        .profile-view-driver h2 i {
+            color: #4CAF50;
+        }
+
+        .profile-view-driver #community-profile-name {
+            color: #4CAF50;
+        }
+
+        /* Traveler Profile = Blue */
+        .profile-view-traveler {
+            border-color: #007bff !important;
+            background: #f0f7ff !important;
+        }
+
+        .profile-view-traveler h2 i {
+            color: #007bff;
+        }
+
+        .profile-view-traveler #community-profile-name {
+            color: #007bff;
+        }
+
+        /* Emergency Profile = Red */
+        .profile-view-emergency {
+            border-color: var(--primary-color) !important;
+            background: #fff0f0 !important;
+        }
+
+        .profile-view-emergency h2 i {
+            color: var(--primary-color);
+        }
+
+        .profile-view-emergency #community-profile-name {
+            color: var(--primary-color);
+        }
+
+        /* Default/Unknown/Guest */
+        .profile-view-unknown h2 i,
+        .profile-view-guest h2 i {
+            color: var(--secondary-color);
+        }
+
+        .profile-view-unknown #community-profile-name,
+        .profile-view-guest #community-profile-name {
+            color: var(--secondary-color);
+        }
+
+        /* === END NEW PROFILE STYLES === */
+
+        /* === NEW STICKY FOOTER STYLES === */
+        #main-footer {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            padding: 50px 0;
+            font-family: 'Poppins', sans-serif;
+            margin-top: auto;
+            /* This pushes it to the bottom */
+        }
+
+        /* === END NEW STICKY FOOTER STYLES === */
+
         @media print {
             body>*:not(#certificate-modal) {
                 display: none;
@@ -1306,7 +2941,8 @@
         <div class="sidebar-section">
             <h3><i class="fas fa-newspaper"></i> News & Updates</h3>
             <div class="news-item">
-                <img src="Photoes/report 1.png" alt="Road safety news">
+                <img src="Photoes/report 1.png" alt="Road safety news"
+                    onerror="this.src='https://placehold.co/360x180/eee/999?text=News+Image'; this.onerror=null;">
                 <h4>Road Accident Deaths Rise by 12%</h4>
                 <p>Latest government reports show a concerning increase in road fatalities across major highways.</p>
                 <div class="news-date">
@@ -1314,7 +2950,8 @@
                 </div>
             </div>
             <div class="news-item">
-                <img src="Photoes/report3.png" alt="Traffic rules update">
+                <img src="Photoes/report3.png" alt="Traffic rules update"
+                    onerror="this.src='https://placehold.co/360x180/eee/999?text=News+Image'; this.onerror=null;">
                 <h4>New Helmet Law Enforcement</h4>
                 <p>Stricter penalties announced for riding without helmets. Fine increased to ₹5,000 for repeat
                     offenders.</p>
@@ -1323,7 +2960,8 @@
                 </div>
             </div>
             <div class="news-item">
-                <img src="Photoes/report 4.jpg" alt="Safety campaign">
+                <img src="Photoes/report 4.jpg" alt="Safety campaign"
+                    onerror="this.src='https://placehold.co/360x180/eee/999?text=News+Image'; this.onerror=null;">
                 <h4>National Road Safety Week Announced</h4>
                 <p>Government launches awareness campaign with focus on drunk driving prevention and seatbelt usage.</p>
                 <div class="news-date">
@@ -1331,7 +2969,8 @@
                 </div>
             </div>
             <div class="news-item">
-                <img src="Photoes/report 2 .png" alt="Technology news">
+                <img src="Photoes/report 2 .png" alt="Technology news"
+                    onerror="this.src='https://placehold.co/360x180/eee/999?text=News+Image'; this.onerror=null;">
                 <h4>AI Traffic Signals Reduce Congestion by 30%</h4>
                 <p>Pilot project in Delhi shows promising results with intelligent traffic management systems.</p>
                 <div class="news-date">
@@ -1415,6 +3054,64 @@
             </li>
             <li><a href="Collage.html">Collage</a></li>
             <li><a href="footer.html">Contact</a></li>
+
+            <!-- === NEW AUTH LINKS === -->
+            <!-- These show when logged OUT -->
+            <span id="nav-auth-links" style="display: flex; gap: 1.5em; align-items: center;">
+                <li><a href="#" id="nav-login-btn">Login</a></li>
+                <li><a href="#" id="nav-signup-btn">Sign Up</a></li>
+            </span>
+
+            <!-- This shows when logged IN -->
+            <li id="nav-user-info" class="dropdown" style="display: none; align-items: center; gap: 15px;">
+                <!-- NEW: Profile Initial Circle -->
+                <div id="nav-user-initial"></div>
+                <!-- <a href="#" id="nav-logout-btn" style="color: #fff; background: var(--primary-color); padding: 5px 10px; border-radius: 5px;">Logout</a> -->
+                <!-- OLD LOGOUT BTN - REMOVED -->
+
+                <!-- === NEW PROFILE DROPDOWN MENU === -->
+                <ul class="dropdown-menu" id="profile-dropdown-menu">
+                    <li class="profile-dropdown-header">
+                        <div class="icon"><i class="fas fa-user"></i></div>
+                        <div class="details">
+                            <h4 id="profile-dropdown-name">Guest</h4>
+                            <p id="profile-dropdown-contact">Please log in</p>
+                        </div>
+                    </li>
+                    <li class="profile-menu-rating">
+                        <a href="#" data-modal-target="rating-modal">
+                            <i class="fas fa-star"></i>
+                            <span>My Rating</span>
+                            <i class="fas fa-chevron-right chevron"></i>
+                        </a>
+                    </li>
+                    <li><a href="#" data-modal-target="help-modal"><i
+                                class="fas fa-question-circle"></i><span>Help</span><i
+                                class="fas fa-chevron-right chevron"></i></a></li>
+                    <li><a href="#" data-modal-target="payment-modal"><i
+                                class="fas fa-credit-card"></i><span>Wallet</span><i
+                                class="fas fa-chevron-right chevron"></i></a></li>
+                    <li><a href="#" data-modal-target="rides-modal"><i class="fas fa-route"></i><span>My Rides</span><i
+                                class="fas fa-chevron-right chevron"></i></a></li>
+                    <li><a href="#" data-modal-target="safety-modal"><i
+                                class="fas fa-shield-alt"></i><span>Safety</span><i
+                                class="fas fa-chevron-right chevron"></i></a></li>
+                    <li><a href="#" data-modal-target="refer-modal"><i class="fas fa-gift"></i><span>Refer and
+                                Earn</span><i class="fas fa-chevron-right chevron"></i></a></li>
+                    <li><a href="#" data-modal-target="rewards-modal"><i class="fas fa-trophy"></i><span>My
+                                Rewards</span><i class="fas fa-chevron-right chevron"></i></a></li>
+                    <li><a href="#" data-modal-target="pass-modal"><i class="fas fa-ticket-alt"></i><span>Power
+                                Pass</span><i class="fas fa-chevron-right chevron"></i></a></li>
+                    <li class="logout-item">
+                        <!-- Moved logout button here -->
+                        <a href="#" id="nav-logout-btn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
+                        </a>
+                    </li>
+                </ul>
+                <!-- === END NEW MENU === -->
+            </li>
         </ul>
     </nav>
 
@@ -1493,37 +3190,72 @@
             </article>
         </div>
 
+        <!-- 
+            FIX: REMOVED DUPLICATE COMMUNITY SECTION. 
+            The section below is the correct, complete one.
+        -->
+
         <section class="community-box" id="community">
-            <h2><i class="fas fa-users"></i> Join Our Safety Community</h2>
-            <p>Register as a community driver or an emergency responder to get localized alerts and contribute to safer
-                roads for everyone.</p>
-            <div class="registration-options">
-                <div class="reg-card driver">
-                    <div class="reg-card-icon"><i class="fas fa-car"></i></div>
-                    <h3>Driver Registration</h3>
-                    <p>Get alerts on road conditions, accidents, and construction in your area. Report hazards and help
-                        others.</p>
-                    <button class="reg-btn" data-form-type="driver">Register as Driver</button>
-                </div>
 
-                <!-- === NEW TRAVELER CARD === -->
-                <div class="reg-card traveler">
-                    <div class="reg-card-icon"><i class="fas fa-user-plus"></i></div>
-                    <h3>Community Registration</h3>
-                    <p>Register as a traveler to book cabs, bikes, and other registered vehicles from our community.</p>
-                    <button class="reg-btn" data-form-type="traveler">Register as Traveler</button>
-                </div>
-                <!-- === END NEW TRAVELER CARD === -->
-
-                <div class="reg-card emergency">
-                    <div class="reg-card-icon"><i class="fas fa-first-aid"></i></div>
-                    <h3>Emergency Services</h3>
-                    <p>Register your service to get priority access to AI-optimized routes and real-time incident data.
-                    </p>
-                    <button class="reg-btn" data-form-type="emergency">Register Service</button>
+            <!-- View 1: Logged OUT (NEW) -->
+            <div id="community-login-prompt">
+                <h2><i class="fas fa-users"></i> Join Our Safety Community</h2>
+                <p>Register or log in to get localized alerts, contribute to safer roads, and access community features.
+                </p>
+                <div class="community-login-btns">
+                    <button id="community-signup-btn" class="btn btn-primary"
+                        onclick="document.getElementById('nav-signup-btn').click();">Sign Up Now</button>
+                    <button id="community-login-btn" class="btn btn-secondary"
+                        onclick="document.getElementById('nav-login-btn').click();">Login</button>
                 </div>
             </div>
+
+            <!-- View 2: Logged IN, No Role Selected (MOVED) -->
+            <div id="community-register-view" style="display: none;">
+                <h2 id="community-register-title"><i class="fas fa-users"></i> Join Our Safety Community</h2>
+                <p id="community-register-subtitle">Register as a community driver or an emergency responder to get
+                    localized alerts and contribute to safer
+                    roads for everyone.</p>
+                <div class="registration-options">
+                    <div class="reg-card driver" data-form-type="driver">
+                        <div class="reg-card-icon"><i class="fas fa-car"></i></div>
+                        <h3>Driver Registration</h3>
+                        <p>Get alerts on road conditions, accidents, and construction in your area. Report hazards and
+                            help
+                            others.</p>
+                        <button class="reg-btn">Register as Driver</button>
+                    </div>
+
+                    <!-- === NEW TRAVELER CARD === -->
+                    <div class="reg-card traveler" data-form-type="traveler">
+                        <div class="reg-card-icon"><i class="fas fa-user-plus"></i></div>
+                        <h3>Community Registration</h3>
+                        <p>Register as a traveler to book cabs, bikes, and other registered vehicles from our community.
+                        </p>
+                        <button class="reg-btn">Register as Traveler</button>
+                    </div>
+                    <!-- === END NEW TRAVELER CARD === -->
+
+                    <div class="reg-card emergency" data-form-type="emergency">
+                        <div class="reg-card-icon"><i class="fas fa-first-aid"></i></div>
+                        <h3>Emergency Services</h3>
+                        <p>Register your service to get priority access to AI-optimized routes and real-time incident
+                            data.
+                        </p>
+                        <button class="reg-btn">Register Service</button>
+                    </div>
+                </div>
+            </div> <!-- End register view -->
+
+            <!-- View 3: Logged IN, Role Selected (MOVED) -->
+            <div id="community-profile-view" style="display: none;"> <!-- Class will be added by JS -->
+                <h2><i class="fas fa-user-check"></i> Welcome to the Community!</h2>
+                <p style="font-size: 1.2em;">You are logged in as: <strong id="community-profile-name"></strong></p>
+                <p>You can now access community features, manage your profile, and help keep our roads safe.</p>
+                <!-- You could add buttons here like "Edit My Profile" or "View Hazard Map" -->
+            </div>
         </section>
+
 
         <section class="pledge-box" id="pledge">
             <h2><i class="fas fa-hands-helping"></i> Take the Road Safety Pledge</h2>
@@ -1549,17 +3281,72 @@
 
     </main>
 
+    <!-- 
+        FIX: The broken HTML fragment that was here has been removed.
+        The block below is the correct, functioning modal.
+    -->
     <div class="reg-modal-overlay" id="reg-modal">
         <div class="reg-form-container">
             <span class="reg-form-close">&times;</span>
 
-            <!-- === DRIVER REGISTRATION FORM === -->
+            <!-- === LOGIN FORM === -->
+            <div id="login-form-wrapper">
+                <div class="reg-form-header">
+                    <h2>Community Login</h2>
+                    <p>Welcome back! Sign in to access your account.</p>
+                </div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="loginEmail"><i class="fas fa-envelope"></i>Email</label>
+                        <input type="email" id="loginEmail" name="loginEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword"><i class="fas fa-lock"></i>Password</label>
+                        <input type="password" id="loginPassword" name="loginPassword" required>
+                    </div>
+                    <div id="login-error" class="form-error"></div>
+                    <button type="submit" class="submit-btn driver-btn" style="background: #007bff;">Login</button>
+                </form>
+            </div>
+
+            <!-- === NEW SIGNUP FORM === -->
+            <div id="signup-form-wrapper">
+                <div class="reg-form-header">
+                    <h2>Create Your Account</h2>
+                    <p>Sign up to join the community. It's fast and free.</p>
+                </div>
+                <form id="signup-form">
+                    <div class="form-group">
+                        <label for="signupEmail"><i class="fas fa-envelope"></i>Email</label>
+                        <input type="email" id="signupEmail" name="signupEmail" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="signupPassword"><i class="fas fa-lock"></i>Password (min. 6 characters)</label>
+                        <input type="password" id="signupPassword" name="signupPassword" required minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label for="signupConfirmPassword"><i class="fas fa-check-circle"></i>Confirm Password</label>
+                        <input type="password" id="signupConfirmPassword" name="signupConfirmPassword" required
+                            minlength="6">
+                    </div>
+                    <div id="signup-error" class="form-error"></div>
+                    <button type="submit" class="submit-btn driver-btn" style="background: var(--primary-color);">Create
+                        Account</button>
+                </form>
+            </div>
+
+            <!-- === DRIVER REGISTRATION FORM (Role Completion) === -->
             <div id="driver-form-wrapper">
                 <div class="reg-form-header">
-                    <h2 id="reg-form-title-driver">Driver Registration</h2>
-                    <p id="reg-form-subtitle-driver">Fill out the form below to join.</p>
+                    <h2 id="reg-form-title-driver">Complete Driver Profile</h2>
+                    <p id="reg-form-subtitle-driver">Please provide your driver and vehicle details.</p>
                 </div>
                 <form id="driver-registration-form">
+                    <!-- REMOVED Account Details (Email/Password) -->
+
+                    <h3
+                        style="font-weight: 600; color: #333; margin-top: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        Personal Details</h3>
                     <div class="form-group">
                         <label for="driverName"><i class="fas fa-user"></i>Full Name</label>
                         <input type="text" id="driverName" name="driverName" required>
@@ -1614,17 +3401,23 @@
                     <!-- New Map Container -->
                     <div id="driver-map-container" class="map-container" style="display: none;"></div>
 
+                    <div id="driver-reg-error" class="form-error"></div>
                     <button type="submit" class="submit-btn driver-btn">Register Driver</button>
                 </form>
             </div>
 
-            <!-- === TRAVELER REGISTRATION FORM === -->
+            <!-- === TRAVELER REGISTRATION FORM (Role Completion) === -->
             <div id="traveler-form-wrapper">
                 <div class="reg-form-header">
-                    <h2 id="reg-form-title-traveler">Traveler Registration</h2>
-                    <p id="reg-form-subtitle-traveler">Join the community to book rides.</p>
+                    <h2 id="reg-form-title-traveler">Complete Traveler Profile</h2>
+                    <p id="reg-form-subtitle-traveler">Tell us a bit about yourself.</p>
                 </div>
                 <form id="traveler-registration-form">
+                    <!-- REMOVED Account Details (Email/Password) -->
+
+                    <h3
+                        style="font-weight: 600; color: #333; margin-top: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        Personal Details</h3>
                     <div class="form-group">
                         <label for="travelerName"><i class="fas fa-user"></i>Full Name</label>
                         <input type="text" id="travelerName" name="travelerName" required>
@@ -1640,41 +3433,45 @@
                             placeholder="Enter your home or work address">
                     </div>
 
+                    <div id="traveler-reg-error" class="form-error"></div>
                     <button type="submit" class="submit-btn traveler-btn">Register as Traveler</button>
                 </form>
             </div>
             <!-- === END TRAVELER REGISTRATION FORM === -->
 
-            <!-- === EMERGENCY REGISTRATION FORM === -->
+            <!-- === EMERGENCY REGISTRATION FORM (Role Completion) === -->
             <div id="emergency-form-wrapper">
                 <div class="reg-form-header">
-                    <h2 id="reg-form-title-emergency">Emergency Service Registration</h2>
+                    <h2 id="reg-form-title-emergency">Complete Service Profile</h2>
                     <p id="reg-form-subtitle-emergency">Register your service for priority routing.</p>
                 </div>
                 <form id="emergency-registration-form">
+                    <!-- REMOVED Account Details (Email/Password) -->
+
                     <h3
-                        style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
-                        Service & Operator Details</h3>
+                        style="font-weight: 600; color: #333; margin-top: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
+                        Service Details</h3>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="serviceType"><i class="fas fa-briefcase-medical"></i>Service Type</label>
                             <select id="serviceType" name="serviceType">
                                 <option value="ambulance">Ambulance</option>
                                 <option value="police">Police</option>
-                                <option value="fire_brigade">Fire Brigade</option>
+                                <option value="fire">Fire Dept.</option>
+                                <option value="other">Other</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="serviceId"><i class="fas fa-id-badge"></i>Service ID / Badge</label>
+                            <label for="serviceId"><i class="fas fa-id-badge"></i>Service ID / Unit No.</label>
                             <input type="text" id="serviceId" name="serviceId" required>
                         </div>
                     </div>
                     <div class="form-group">
-                        <label for="serviceName"><i class="fas fa-user-shield"></i>Operator Name</label>
+                        <label for="serviceName"><i class="fas fa-user-md"></i>Operator Name</label>
                         <input type="text" id="serviceName" name="serviceName" required>
                     </div>
                     <div class="form-group">
-                        <label for="servicePhone"><i class="fas fa-phone-volume"></i>Service Contact Phone</label>
+                        <label for="servicePhone"><i class="fas fa-phone-alt"></i>Dispatch Phone</label>
                         <input type="tel" id="servicePhone" name="servicePhone" required>
                     </div>
 
@@ -1683,19 +3480,19 @@
                         Vehicle Details</h3>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="serviceVehicleId"><i class="fas fa-car-on"></i>Vehicle ID / Call Sign</label>
+                            <label for="serviceVehicleId"><i class="fas fa-car"></i>Vehicle ID / Plate</label>
                             <input type="text" id="serviceVehicleId" name="serviceVehicleId" required>
                         </div>
                         <div class="form-group">
                             <label for="serviceVehicleType"><i class="fas fa-ambulance"></i>Vehicle Type</label>
                             <input type="text" id="serviceVehicleType" name="serviceVehicleType"
-                                placeholder="e.g., Patrol Car, Fire Engine">
+                                placeholder="e.g., Type II Ambulance">
                         </div>
                     </div>
 
                     <h3
                         style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
-                        Dispatch Details</h3>
+                        Routing Details</h3>
                     <div class="form-group">
                         <label for="emergencyDestination"><i class="fas fa-map-marked-alt"></i>Destination
                             Location</label>
@@ -1714,6 +3511,7 @@
                         <label for="bestRoute">Give best possible route option</label>
                     </div>
 
+                    <div id="emergency-reg-error" class="form-error"></div>
                     <button type="submit" class="submit-btn emergency-btn">Register Service</button>
                 </form>
             </div>
@@ -1741,6 +3539,292 @@
         </div>
     </div>
 
+    <!-- === NEW: Profile Modals === -->
+
+    <!-- My Rating Modal -->
+    <div id="rating-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+
+            <!-- Rating Content -->
+            <div id="rating-content">
+                <h2><i class="fas fa-star"></i> Rate Your Experience</h2>
+                <p>We value your feedback. Please rate your experience with safe return and leave a comment below.</p>
+
+                <div class="star-rating-container" data-rating="0">
+                    <span class="star" data-value="1"><i class="fas fa-star"></i></span>
+                    <span class="star" data-value="2"><i class="fas fa-star"></i></span>
+                    <span class="star" data-value="3"><i class="fas fa-star"></i></span>
+                    <span class="star" data-value="4"><i class="fas fa-star"></i></span>
+                    <span class="star" data-value="5"><i class="fas fa-star"></i></span>
+                </div>
+
+                <textarea id="review-comment" class="review-textarea"
+                    placeholder="Write your review here... (optional)"></textarea>
+
+                <button id="submit-review-btn" class="submit-review-btn">Submit Review</button>
+            </div>
+
+            <!-- Success Message -->
+            <div id="rating-success-message" class="success-message" style="display: none;">
+                <i class="fas fa-check-circle"></i>
+                <h3>Thank You!</h3>
+                <p>Your feedback has been submitted.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-question-circle"></i> Help & Support</h2>
+            <p>Welcome to our support center. Find answers to common questions below or contact us directly for
+                assistance.</p>
+
+            <!-- NEW: FAQ Accordion -->
+            <div class="faq-accordion">
+                <!-- FAQ 1 -->
+                <div class="faq-item">
+                    <div class="faq-title" tabindex="0">
+                        <span>How do I reset my password?</span>
+                        <i class="fas fa-chevron-right faq-chevron"></i>
+                    </div>
+                    <div class="faq-details">
+                        <p>To reset your password, please log out, click "Sign In" on the main page, and then look for a
+                            "Forgot Password?" link on the sign-in form. (Note: This link is not yet implemented, but
+                            this is where it would be.)</I></p>
+                    </div>
+                </div>
+
+                <!-- FAQ 2 -->
+                <div class="faq-item">
+                    <div class="faq-title" tabindex="0">
+                        <span>How does community registration work?</span>
+                        <i class="fas fa-chevron-right faq-chevron"></i>
+                    </div>
+                    <div class="faq-details">
+                        <p>First, you must "Create Account" with your email and password. After you are logged in, the
+                            "Join Our Safety Community" section on the main page will allow you to select a role
+                            (Driver, Traveler, or Emergency) and complete your profile.</p>
+                    </div>
+                </div>
+
+                <!-- FAQ 3 -->
+                <div class="faq-item">
+                    <div class="faq-title" tabindex="0">
+                        <span>How do I report a road hazard?</span>
+                        <i class="fas fa-chevron-right faq-chevron"></i>
+                    </div>
+                    <div class="faq-details">
+                        <p>Once you are registered as a "Driver," a "Report Hazard" button will become available on your
+                            community dashboard. This feature allows you to report accidents, construction, or other
+                            dangers in real-time. (This feature is coming soon!)</p>
+                    </div>
+                </div>
+
+                <!-- FAQ 4 -->
+                <div class="faq-item">
+                    <div class="faq-title" tabindex="0">
+                        <span>Contact Us</span>
+                        <i class="fas fa-chevron-right faq-chevron"></i>
+                    </div>
+                    <div class="faq-details">
+                        <p>For any technical issues or support requests not covered here, please email our team directly
+                            at <a href="mailto:support@safereturn.com">support@safereturn.com</a>.</p>
+                    </div>
+                </div>
+            </div>
+            <!-- END NEW FAQ -->
+
+        </div>
+    </div>
+
+
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-wallet"></i> Wallet</h2>
+
+            <div class="wallet-balance">
+                <p>Current Balance</p>
+                <h3>₹0.00</h3>
+                <button id="show-add-money-btn" class="add-money-btn"><i class="fas fa-plus-circle"></i> Add
+                    Money</button>
+            </div>
+
+            <div id="add-money-section">
+                <div class="form-group">
+                    <label for="add-money-amount">Enter Amount (₹)</label>
+                    <input type="number" id="add-money-amount" placeholder="e.g., 500">
+                </div>
+                <button id="confirm-add-money-btn" class="submit-btn driver-btn" style="background: #4CAF50;">Proceed to
+                    Pay</button>
+            </div>
+
+            <h4>Saved Payment Methods</h4>
+            <div class="saved-payment-method">
+                <div class="icon"><i class="fab fa-cc-visa"></i></div>
+                <div class="details">
+                    <p>Visa .... 4242</p>
+                    <span>Expires 12/26</span>
+                </div>
+                <button class="remove-btn"><i class="fas fa-trash"></i> Remove</button>
+            </div>
+            <div class="saved-payment-method">
+                <div class="icon" style="color: #5abf2e;"><i class="fas fa-mobile-alt"></i></div>
+                <div class="details">
+                    <p>UPI</p>
+                    <span>vivek@okbank</span>
+                </div>
+                <button class="remove-btn"><i class="fas fa-trash"></i> Remove</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- My Rides Modal -->
+    <div id="rides-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-route"></i> My Rides</h2>
+            <p>Here is a history of your recent rides with SafeReturn community drivers.</p>
+
+            <ul class="ride-history-list">
+                <li class="ride-item">
+                    <div class="icon"><i class="fas fa-car-side"></i></div>
+                    <div class="ride-details">
+                        <p>City Center to Airport</p>
+                        <span>Oct 28, 2025 - 3:30 PM</span>
+                        <span>Driver: Ramesh Kumar</span>
+                    </div>
+                    <div class="ride-price">₹450</div>
+                </li>
+                <li class="ride-item">
+                    <div class="icon"><i class="fas fa-motorcycle"></i></div>
+                    <div class="ride-details">
+                        <p>Sector 14 to Cyber Hub</p>
+                        <span>Oct 27, 2025 - 9:00 AM</span>
+                        <span>Driver: Priya Singh</span>
+                    </div>
+                    <div class="ride-price">₹120</div>
+                </li>
+                <li class="ride-item">
+                    <div class="icon"><i class="fas fa-car-side"></i></div>
+                    <div class="ride-details">
+                        <p>Railway Station to Home</p>
+                        <span>Oct 25, 2025 - 8:15 PM</span>
+                        <span>Driver: Self-Drive Booking</span>
+                    </div>
+                    <div class="ride-price">₹210</div>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Safety Modal -->
+    <div id="safety-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-shield-alt"></i> Safety Center</h2>
+            <p>Your safety is our priority. Use these tools in case of an emergency or to share your trip details.</p>
+
+            <div class="safety-features">
+                <button class="safety-feature-btn share-btn" id="share-ride-btn">
+                    <i class="fas fa-share-alt"></i>
+                    <span>Share My Ride</span>
+                </button>
+                <button class="safety-feature-btn sos-btn" id="sos-btn">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Emergency SOS</span>
+                </button>
+            </div>
+
+            <h4
+                style="font-family: 'Montserrat', sans-serif; color: var(--secondary-color); font-size: 1.2em; margin-top: 30px; margin-bottom: 15px;">
+                Safety Tips:</h4>
+            <ul class="safety-tips-list">
+                <li><i class="fas fa-check-circle"></i> Always verify the driver's name and vehicle license plate.</li>
+                <li><i class="fas fa-check-circle"></i> Wear your seatbelt at all times.</li>
+                <li><i class="fas fa-check-circle"></i> Share your trip status with a trusted contact.</li>
+                <li><i class="fas fa-check-circle"></i> Avoid sharing personal information with the driver.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Refer and Earn Modal -->
+    <div id="refer-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-gift"></i> Refer and Earn</h2>
+            <p>Share your code with friends. When they sign up, you both get a reward!</p>
+
+            <div class="referral-code-box">
+                <input type="text" id="referral-code" value="LOGIN-TO-SEE-CODE" readonly>
+                <button id="referral-copy-btn"><i class="fas fa-copy"></i></button>
+            </div>
+
+            <div class="social-share-buttons">
+                <a href="#" class="social-share-btn whatsapp" id="share-whatsapp"><i class="fab fa-whatsapp"></i></a>
+                <a href="#" class="social-share-btn twitter" id="share-twitter"><i class="fab fa-twitter"></i></a>
+                <a href="#" class="social-share-btn facebook" id="share-facebook"><i class="fab fa-facebook-f"></i></a>
+                <a href="#" class="social-share-btn sms" id="share-sms"><i class="fas fa-comment-dots"></i></a>
+            </div>
+        </div>
+    </div>
+
+    <!-- My Rewards Modal -->
+    <div id="rewards-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-trophy"></i> My Rewards</h2>
+            <p>Here are your available coupons and rewards. Click "Claim" to use them.</p>
+
+            <ul class="rewards-list">
+                <li class="reward-item">
+                    <div class="icon"><i class="fas fa-percentage"></i></div>
+                    <div class="details">
+                        <h4>50% Off First Ride</h4>
+                        <p>Valid for your first ride as a traveler. Expires in 7 days.</p>
+                    </div>
+                    <button class="claim-btn">Claim</button>
+                </li>
+                <li class="reward-item">
+                    <div class="icon"><i class="fas fa-rupee-sign"></i></div>
+                    <div class="details">
+                        <h4>₹25 Wallet Credit</h4>
+                        <p>From "Refer a Friend" bonus. Added to your wallet.</p>
+                    </div>
+                    <button class="claim-btn" disabled style="background: #ccc; cursor: not-allowed;">Claimed</button>
+                </li>
+                <li class="reward-item">
+                    <div class="icon"><i class="fas fa-coffee"></i></div>
+                    <div class="details">
+                        <h4>Free Coffee</h4>
+                        <p>Redeem at any partner 'Safe Stop' cafe. Expires Oct 31.</p>
+                    </div>
+                    <button class="claim-btn">Claim</button>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Power Pass Modal -->
+    <div id="pass-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-ticket-alt"></i> Power Pass</h2>
+            <p>This section will contain information about subscription passes for rides or services. (Content to be
+                built)</p>
+        </div>
+    </div>
+
+    <!-- === END NEW Profile Modals === -->
+
+
+    <!-- THIS IS THE CERTIFICATE CODE YOU PROVIDED -->
     <div id="certificate-modal" class="modal-overlay">
         <div class="certificate-container">
             <span id="cert-close-btn" class="cert-close-btn">&times;</span>
@@ -1787,23 +3871,47 @@
             <h1>ROAD SAFETY HERO</h1>
             <p>A defender of lives.</p>
             <p>A protector of families.</p>
-            <p>A champion of safe roads. 🚦</p>
-            <p>Thank you for leading the change.</p>
-            <p>Thank you for choosing safety.</p>
-            <p>Thank you for making our roads better for everyone.</p>
-            <p class="emphasis">✨ Your pledge matters.</p>
-            <p class="emphasis">✨ You matter.</p>
-            <p class="emphasis">✨ Every life matters. ❤️</p>
+            <!-- 
+                FIX 1: This block of JS was here, causing a syntax error.
+                It has been MOVED to the main <script> tag below.
+            -->
         </div>
     </div>
 
+
     <script>
+        // --- FIX: This script block needs to be *outside* the <script type="module"> block ---
+        // --- but *inside* a DOMContentLoaded listener ---
+
+        // --- Google Maps API Key ---
+        // TODO: Replace "YOUR_API_KEY_GOES_HERE" with your actual Google Maps API Key
+        const GOOGLE_MAPS_API_KEY = "YOUR_API_KEY_GOES_HERE";
+
         document.addEventListener('DOMContentLoaded', () => {
 
-            // --- API KEY ---
-            // IMPORTANT: Replace "YOUR_API_KEY_GOES_HERE" with your actual Google Maps Embed API Key
-            // You can get one from the Google Cloud Console.
-            const GOOGLE_MAPS_API_KEY = "AIzaSyAhRd4r8xBzJFKpgAIgXoR1rsun0F7p4_Q";
+            // --- FIX 1: This logic was moved from the hero-modal div ---
+            // --- NEW PROFILE MENU CLICK LOGIC ---
+            const profileMenuTrigger = document.getElementById('nav-user-info');
+            const profileMenu = document.getElementById('profile-dropdown-menu');
+
+            if (profileMenuTrigger && profileMenu) {
+                profileMenuTrigger.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Stop click from bubbling to the document
+                    profileMenu.classList.toggle('active');
+                });
+            }
+
+            // Listener to close menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (profileMenu && profileMenu.classList.contains('active')) {
+                    // Check if the click was outside the menu AND outside the trigger
+                    if (!profileMenu.contains(e.target) && !profileMenuTrigger.contains(e.target)) {
+                        profileMenu.classList.remove('active');
+                    }
+                }
+            });
+            // --- END NEW PROFILE MENU CLICK LOGIC ---
+            // --- END FIX 1 ---
 
             // --- Sidebar Logic ---
             const sidebar = document.getElementById('sidebar');
@@ -1812,13 +3920,153 @@
             const sidebarOverlay = document.getElementById('sidebarOverlay');
 
             const toggleSidebar = () => {
-                sidebar.classList.toggle('active');
-                sidebarOverlay.classList.toggle('active');
+                if (sidebar) sidebar.classList.toggle('active');
+                if (sidebarOverlay) sidebarOverlay.classList.toggle('active');
             };
 
-            sidebarToggle.addEventListener('click', toggleSidebar);
-            sidebarClose.addEventListener('click', toggleSidebar);
-            sidebarOverlay.addEventListener('click', toggleSidebar);
+            if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebar);
+            if (sidebarClose) sidebarClose.addEventListener('click', toggleSidebar);
+            if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
+
+            // --- NEW: Profile Dropdown Modal Logic ---
+            const profileMenuLinks = document.getElementById('profile-dropdown-menu');
+
+            if (profileMenuLinks) {
+                profileMenuLinks.addEventListener('click', (e) => {
+                    // Find the clicked <a> tag
+                    const link = e.target.closest('a');
+                    if (!link) return; // Didn't click a link
+
+                    // Check if it's a modal trigger
+                    const modalTargetId = link.dataset.modalTarget;
+                    if (modalTargetId) {
+                        e.preventDefault(); // Stop page from jumping
+
+                        // Find the modal
+                        const modal = document.getElementById(modalTargetId);
+                        if (modal) {
+                            // Show the target modal
+                            modal.classList.add('active');
+
+                            // Hide the profile dropdown
+                            if (profileMenu) profileMenu.classList.remove('active');
+                        }
+                    }
+
+                    // If it's the logout button, the existing listener in the other script block will handle it.
+                });
+            }
+
+            // Add close logic for ALL new profile modals
+            document.querySelectorAll('.profile-modal-overlay').forEach(modal => {
+                // Close on 'X' button click
+                const closeBtn = modal.querySelector('.profile-modal-close');
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', () => {
+                        modal.classList.remove('active');
+                    });
+                }
+
+                // Close on overlay click
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('active');
+                    }
+                });
+            });
+            // --- END NEW Profile Dropdown Modal Logic ---
+
+
+            // --- NEW: Star Rating Logic ---
+            const ratingModal = document.getElementById('rating-modal');
+            const starContainer = ratingModal ? ratingModal.querySelector('.star-rating-container') : null;
+            const stars = starContainer ? starContainer.querySelectorAll('.star') : [];
+            const submitReviewBtn = document.getElementById('submit-review-btn');
+            const ratingContent = document.getElementById('rating-content');
+            const ratingSuccess = document.getElementById('rating-success-message');
+
+            let currentRating = 0;
+
+            const setRating = (rating) => {
+                currentRating = rating;
+                if (starContainer) starContainer.dataset.rating = rating;
+                stars.forEach(star => {
+                    if (star.dataset.value <= rating) {
+                        star.classList.add('selected');
+                    } else {
+                        star.classList.remove('selected');
+                    }
+                });
+            };
+
+            stars.forEach(star => {
+                star.addEventListener('click', () => {
+                    const value = parseInt(star.dataset.value);
+                    setRating(value);
+                });
+
+                // Keep hover effect in JS to avoid CSS-only limitations
+                star.addEventListener('mouseover', () => {
+                    const value = parseInt(star.dataset.value);
+                    stars.forEach(s => {
+                        s.style.color = s.dataset.value <= value ? 'var(--accent-color)' : '#ccc';
+                    });
+                });
+            });
+
+            if (starContainer) {
+                starContainer.addEventListener('mouseout', () => {
+                    // Reset to selected rating
+                    stars.forEach(star => {
+                        // Use .selected class to check, not style.color
+                        if (star.classList.contains('selected')) {
+                            star.style.color = 'var(--accent-color)';
+                        } else {
+                            star.style.color = '#ccc';
+                        }
+                    });
+                });
+            }
+
+            if (submitReviewBtn) {
+                submitReviewBtn.addEventListener('click', () => {
+                    const comment = document.getElementById('review-comment').value;
+                    console.log(`Submitting Review: ${currentRating} stars, Comment: "${comment}"`);
+
+                    // Here you would save to Firestore, e.g.:
+                    // const user = auth.currentUser;
+                    // if (user) {
+                    //     await addDoc(collection(db, 'artifacts', appId, 'reviews'), {
+                    //         userId: user.uid,
+                    //         rating: currentRating,
+                    //         comment: comment,
+                    //         createdAt: new Date().toISOString()
+                    //     });
+                    // }
+
+                    // Show success message
+                    if (ratingContent) ratingContent.style.display = 'none';
+                    if (ratingSuccess) ratingSuccess.style.display = 'block';
+
+                    // Reset modal after a delay
+                    setTimeout(() => {
+                        // Hide modal
+                        if (ratingModal) ratingModal.classList.remove('active');
+
+                        // Reset content
+                        // Use a short delay to avoid flash of content before modal closes
+                        setTimeout(() => {
+                            if (ratingContent) ratingContent.style.display = 'block';
+                            if (ratingSuccess) ratingSuccess.style.display = 'none';
+                            setRating(0); // Reset stars
+                            document.getElementById('review-comment').value = '';
+                        }, 400); // Should match modal transition time
+                    }, 2500);
+                });
+            }
+
+            // --- END Star Rating Logic ---
+
 
             // --- Accordion Logic (Tips & Education) ---
             const accordionItems = document.querySelectorAll('.tip, .edu-item');
@@ -1826,12 +4074,16 @@
             accordionItems.forEach(item => {
                 item.addEventListener('click', () => {
                     const details = item.nextElementSibling;
+                    if (!details || !details.classList.contains('tip-details') && !details.classList.contains('edu-details')) return;
+
                     const isOpen = details.classList.contains('open');
 
                     document.querySelectorAll('.tip-details, .edu-details').forEach(d => {
                         d.classList.remove('open');
                         d.style.maxHeight = null;
-                        d.previousElementSibling.classList.remove('active');
+                        if (d.previousElementSibling) {
+                            d.previousElementSibling.classList.remove('active');
+                        }
                     });
 
                     if (!isOpen) {
@@ -1842,37 +4094,208 @@
                 });
             });
 
+            // --- NEW: FAQ Accordion Logic ---
+            const faqItems = document.querySelectorAll('.faq-item');
+            faqItems.forEach(item => {
+                const title = item.querySelector('.faq-title');
+
+                const toggleItem = () => {
+                    const details = item.querySelector('.faq-details');
+                    const isOpen = item.classList.contains('active');
+
+                    // Close all others (optional, uncomment if you want only one open)
+                    // faqItems.forEach(i => {
+                    //     i.classList.remove('active');
+                    //     i.querySelector('.faq-details').classList.remove('open');
+                    //     i.querySelector('.faq-details').style.maxHeight = null;
+                    // });
+
+                    if (isOpen) {
+                        item.classList.remove('active');
+                        details.classList.remove('open');
+                        details.style.maxHeight = null;
+                    } else {
+                        item.classList.add('active');
+                        details.classList.add('open');
+                        details.style.maxHeight = details.scrollHeight + 'px';
+                    }
+                };
+
+                if (title) {
+                    title.addEventListener('click', toggleItem);
+                    // Add keyboard support
+                    title.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleItem();
+                        }
+                    });
+                }
+            });
+            // --- END NEW FAQ Logic ---
+
+
+            // --- NEW: Wallet Modal Logic ---
+            const showAddMoneyBtn = document.getElementById('show-add-money-btn');
+            const addMoneySection = document.getElementById('add-money-section');
+            const confirmAddMoneyBtn = document.getElementById('confirm-add-money-btn');
+            const addMoneyAmountInput = document.getElementById('add-money-amount');
+
+            if (showAddMoneyBtn) {
+                showAddMoneyBtn.addEventListener('click', () => {
+                    // Toggle the add money section
+                    if (addMoneySection.style.display === 'block') {
+                        addMoneySection.style.display = 'none';
+                        showAddMoneyBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Add Money';
+                    } else {
+                        addMoneySection.style.display = 'block';
+                        showAddMoneyBtn.innerHTML = '<i class="fas fa-times"></i> Cancel';
+                        if (addMoneyAmountInput) addMoneyAmountInput.focus();
+                    }
+                });
+            }
+
+            if (confirmAddMoneyBtn) {
+                confirmAddMoneyBtn.addEventListener('click', () => {
+                    const amount = addMoneyAmountInput ? addMoneyAmountInput.value : 0;
+                    if (amount > 0) {
+                        // Using a simple placeholder instead of alert()
+                        const originalText = confirmAddMoneyBtn.textContent;
+                        confirmAddMoneyBtn.textContent = `Processing ₹${amount}...`;
+
+                        setTimeout(() => {
+                            alert(`Proceeding to payment gateway for ₹${amount}. \n(This is a demo - no real payment will be made.)`);
+                            confirmAddMoneyBtn.textContent = originalText;
+                            // In a real app, you'd redirect to a payment page here.
+
+                            // Reset
+                            if (addMoneyAmountInput) addMoneyAmountInput.value = '';
+                            if (addMoneySection) addMoneySection.style.display = 'none';
+                            if (showAddMoneyBtn) showAddMoneyBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Add Money';
+                        }, 1500);
+
+                    } else {
+                        alert("Please enter a valid amount.");
+                        if (addMoneyAmountInput) addMoneyAmountInput.focus();
+                    }
+                });
+            }
+            // --- END Wallet Modal Logic ---
+
+
+            // --- NEW: Safety Modal Button Logic ---
+            const shareRideBtn = document.getElementById('share-ride-btn');
+            const sosBtn = document.getElementById('sos-btn');
+
+            if (shareRideBtn) {
+                shareRideBtn.addEventListener('click', () => {
+                    // This is a demo. In a real app, this would open a "share" dialog.
+                    alert("Share My Ride: \nYour live location will be shared with your trusted contacts. (Demo)");
+                });
+            }
+
+            if (sosBtn) {
+                sosBtn.addEventListener('click', () => {
+                    // This is a demo. In a real app, this would confirm and alert authorities.
+                    alert("EMERGENCY SOS: \nConnecting to emergency services and sharing your location. (Demo)");
+                });
+            }
+            // --- END Safety Modal Logic ---
+
+
+            // --- NEW: Refer & Rewards Logic ---
+            const referralCopyBtn = document.getElementById('referral-copy-btn');
+            const referralCodeInput = document.getElementById('referral-code');
+            const shareWhatsapp = document.getElementById('share-whatsapp');
+            const shareTwitter = document.getElementById('share-twitter');
+            const shareFacebook = document.getElementById('share-facebook');
+            const shareSms = document.getElementById('share-sms');
+
+            const copyReferralCode = () => {
+                if (!referralCodeInput) return;
+
+                // --- Simple clipboard copy ---
+                // We use this method for iframe compatibility
+                try {
+                    referralCodeInput.select();
+                    document.execCommand('copy');
+
+                    const originalIcon = referralCopyBtn.innerHTML;
+                    referralCopyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                    setTimeout(() => {
+                        referralCopyBtn.innerHTML = originalIcon;
+                    }, 2000);
+                } catch (err) {
+                    console.error('Failed to copy code: ', err);
+                    alert("Failed to copy. Please copy it manually.");
+                }
+            };
+
+            if (referralCopyBtn) {
+                referralCopyBtn.addEventListener('click', copyReferralCode);
+            }
+
+            const updateShareLinks = () => {
+                const code = referralCodeInput ? referralCodeInput.value : '';
+                const text = encodeURIComponent(`Hey! Join me on SafeReturn, the best road safety app. Use my referral code: ${code}`);
+                const url = encodeURIComponent("https.safereturn.com"); // Placeholder URL
+
+                if (shareWhatsapp) shareWhatsapp.href = `https://wa.me/?text=${text}`;
+                if (shareTwitter) shareTwitter.href = `https://twitter.com/intent/tweet?text=${text}&url=${url}`;
+                if (shareFacebook) shareFacebook.href = `https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`;
+                if (shareSms) shareSms.href = `sms:?&body=${text}`;
+            };
+
+            // Update links when the modal is opened (the code might populate after load)
+            const referModalTrigger = document.querySelector('a[data-modal-target="refer-modal"]');
+            if (referModalTrigger) {
+                referModalTrigger.addEventListener('click', updateShareLinks);
+            }
+
+            // Handle reward "Claim" buttons
+            document.querySelectorAll('.claim-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (btn.disabled) return;
+
+                    const originalText = btn.textContent;
+                    btn.textContent = 'Claimed!';
+                    btn.disabled = true;
+                    btn.style.background = '#ccc';
+                    btn.style.cursor = 'not-allowed';
+
+                    // In a real app, you'd update this in Firestore
+
+                    setTimeout(() => {
+                        alert("Reward has been claimed! (This is a demo)");
+                    }, 300);
+                });
+            });
+            // --- END Refer & Rewards Logic ---
+
 
             // --- Registration Modal Logic ---
+            // MOVED to the top <script type="module"> block to share with Firebase
+            /*
             const regModal = document.getElementById('reg-modal');
             const regOpenBtns = document.querySelectorAll('.reg-btn');
             const regCloseBtn = regModal.querySelector('.reg-form-close');
-
-            // Form Wrappers
-            const driverFormWrapper = document.getElementById('driver-form-wrapper');
-            const emergencyFormWrapper = document.getElementById('emergency-form-wrapper');
-            const travelerFormWrapper = document.getElementById('traveler-form-wrapper'); // New
-
-            // Forms
-            const driverForm = document.getElementById('driver-registration-form');
-            const emergencyForm = document.getElementById('emergency-registration-form');
-            const travelerForm = document.getElementById('traveler-registration-form'); // New
-
-            // Success Messages
-            const driverSuccess = document.getElementById('driver-success-message');
-            const emergencySuccess = document.getElementById('emergency-success-message');
-            const travelerSuccess = document.getElementById('traveler-success-message'); // New
+            ...
+            */
 
             // --- NEW Map Preview Logic ---
             const previewDriverMapBtn = document.getElementById('previewDriverMapBtn');
-            const driverMapContainer = document.getElementById('driver-map-container');
+            const driverMapContainer = document.getElementById('driver-map-container'); // MOVED TO TOP SCRIPT
             const driverDestinationInput = document.getElementById('driverDestination');
 
             const previewEmergencyMapBtn = document.getElementById('previewEmergencyMapBtn');
-            const emergencyMapContainer = document.getElementById('emergency-map-container');
+            const emergencyMapContainer = document.getElementById('emergency-map-container'); // MOVED TO TOP SCRIPT
             const emergencyDestinationInput = document.getElementById('emergencyDestination');
 
+            // Note: driverMapContainer and emergencyMapContainer are now defined in the top module script
+
             const displayMap = (container, location) => {
+                if (!container) return; // Guard against null
+
                 if (!location) {
                     container.innerHTML = `<div class="map-api-notice"><i class="fas fa-exclamation-triangle"></i>Please enter a destination first.</div>`;
                     container.style.display = 'block';
@@ -1898,118 +4321,31 @@
                 container.style.display = 'block';
             };
 
-            previewDriverMapBtn.addEventListener('click', () => {
-                const location = driverDestinationInput.value.trim();
-                displayMap(driverMapContainer, location);
-            });
-
-            previewEmergencyMapBtn.addEventListener('click', () => {
-                const location = emergencyDestinationInput.value.trim();
-                displayMap(emergencyMapContainer, location);
-            });
-            // --- END NEW Map Preview Logic ---
-
-            // Reset all modal content
-            const resetModalForms = () => {
-                driverFormWrapper.style.display = 'none';
-                emergencyFormWrapper.style.display = 'none';
-                travelerFormWrapper.style.display = 'none'; // New
-                driverSuccess.style.display = 'none';
-                emergencySuccess.style.display = 'none';
-                travelerSuccess.style.display = 'none'; // New
-                driverForm.reset();
-                emergencyForm.reset();
-                travelerForm.reset(); // New
-                // Also hide map containers on reset
-                driverMapContainer.style.display = 'none';
-                driverMapContainer.innerHTML = '';
-                emergencyMapContainer.style.display = 'none';
-                emergencyMapContainer.innerHTML = '';
-            };
-
-            // Open Modal and show correct form
-            regOpenBtns.forEach(btn => {
-                btn.addEventListener('click', () => {
-                    resetModalForms(); // Reset forms first
-                    const formType = btn.dataset.formType;
-
-                    if (formType === 'driver') {
-                        driverFormWrapper.style.display = 'block';
-                    } else if (formType === 'emergency') {
-                        emergencyFormWrapper.style.display = 'block';
-                    } else if (formType === 'traveler') { // New
-                        travelerFormWrapper.style.display = 'block';
-                    }
-
-                    regModal.classList.add('active');
-                });
-            });
-
-            // Close Modal
-            const closeModal = () => {
-                regModal.classList.remove('active');
-                // A small delay to let the fade-out animation finish before resetting
-                setTimeout(resetModalForms, 300);
-            };
-
-            if (regCloseBtn) {
-                regCloseBtn.addEventListener('click', closeModal);
-            }
-
-            if (regModal) {
-                regModal.addEventListener('click', (e) => {
-                    if (e.target === regModal) {
-                        closeModal();
-                    }
+            if (previewDriverMapBtn) {
+                previewDriverMapBtn.addEventListener('click', () => {
+                    if (!driverDestinationInput) return;
+                    const location = driverDestinationInput.value.trim();
+                    displayMap(driverMapContainer, location);
                 });
             }
 
-            // Handle Driver Form Submission
-            driverForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const formData = new FormData(driverForm);
-                const data = Object.fromEntries(formData.entries());
-                console.log('Driver Registration Data:', data);
+            if (previewEmergencyMapBtn) {
+                previewEmergencyMapBtn.addEventListener('click', () => {
+                    if (!emergencyDestinationInput) return;
+                    const location = emergencyDestinationInput.value.trim();
+                    displayMap(emergencyMapContainer, location);
+                });
+            }
 
-                driverFormWrapper.style.display = 'none';
-                driverSuccess.style.display = 'block';
-
-                setTimeout(closeModal, 2500); // Close modal after 2.5s
-            });
-
-            // Handle Emergency Form Submission
-            emergencyForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const formData = new FormData(emergencyForm);
-                const data = Object.fromEntries(formData.entries());
-                data.bestRoute = formData.has('bestRoute'); // Checkbox value
-                console.log('Emergency Service Registration Data:', data);
-
-                emergencyFormWrapper.style.display = 'none';
-                emergencySuccess.style.display = 'block';
-
-                setTimeout(closeModal, 2500); // Close modal after 2.5s
-            });
-
-            // Handle Traveler Form Submission
-            travelerForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const formData = new FormData(travelerForm);
-                const data = Object.fromEntries(formData.entries());
-                console.log('Traveler Registration Data:', data);
-
-                travelerFormWrapper.style.display = 'none';
-                travelerSuccess.style.display = 'block';
-
-                setTimeout(closeModal, 2500); // Close modal after 2.5s
-            });
 
 
             // --- Pledge & Certificate Logic ---
             const pledgeBtn = document.getElementById('generate-pledge-btn');
             const pledgeNameInput = document.getElementById('pledge-name');
             const pledgeOutputP = document.querySelector('#pledge-output p');
-            const originalPledgeHTML = pledgeOutputP.innerHTML;
+
+            // FIX: Check if pledgeOutputP exists before accessing innerHTML
+            const originalPledgeHTML = pledgeOutputP ? pledgeOutputP.innerHTML : 'I pledge to be <strong><em>YOU</em>.</strong> A responsible road user.';
 
             const certModal = document.getElementById('certificate-modal');
             const certCloseBtn = document.getElementById('cert-close-btn');
@@ -2018,112 +4354,135 @@
             const downloadPdfBtn = document.getElementById('cert-pdf-btn');
             const printBtn = document.getElementById('cert-print-btn');
             const whatsappBtn = document.getElementById('cert-whatsapp');
-            const certificateContainer = certModal.querySelector('.certificate-container');
+            const certificateContainer = certModal ? certModal.querySelector('.certificate-container') : null;
             const confettiCanvas = document.getElementById('confetti-canvas');
 
             const heroModal = document.getElementById('hero-modal');
             const heroCloseBtn = document.getElementById('hero-close-btn');
 
-            const myConfetti = confetti.create(confettiCanvas, {
-                resize: true,
-                useWorker: true
-            });
-
-            pledgeBtn.addEventListener('click', () => {
-                const name = pledgeNameInput.value.trim();
-                if (name === "") {
-                    // Use a custom modal alert later if needed, for now, browser alert is fine
-                    // but since user said no alerts, we'll just focus.
-                    pledgeNameInput.focus();
-                    pledgeNameInput.style.borderColor = 'var(--primary-color)';
-                    return;
-                }
-                pledgeNameInput.style.borderColor = '#ccc';
-
-
-                const newPledgeHTML = originalPledgeHTML.replace(
-                    '<strong><em>YOU</em>.</strong>',
-                    `<strong style="color: var(--primary-color);"><em>${name}</em>.</strong>`
-                );
-                pledgeOutputP.innerHTML = newPledgeHTML;
-
-                certName.textContent = name;
-                certDate.textContent = new Date().toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
+            let myConfetti;
+            if (confettiCanvas) {
+                myConfetti = confetti.create(confettiCanvas, {
+                    resize: true,
+                    useWorker: true
                 });
+            }
 
-                const shareText = encodeURIComponent(
-                    `I just took the SafeReturn Road Safety Pledge! Join me in committing to safer roads. #SafeReturn #RoadSafetyHero`
-                );
-                whatsappBtn.href = `https://wa.me/?text=${shareText}`;
 
-                certModal.style.display = 'flex';
+            if (pledgeBtn) {
+                pledgeBtn.addEventListener('click', () => {
+                    if (!pledgeNameInput) return;
 
-                myConfetti({
-                    particleCount: 150,
-                    spread: 90,
-                    origin: { y: 0.6 },
-                    zIndex: 10001
+                    const name = pledgeNameInput.value.trim();
+                    if (name === "") {
+                        pledgeNameInput.focus();
+                        pledgeNameInput.style.borderColor = 'var(--primary-color)';
+                        return;
+                    }
+                    pledgeNameInput.style.borderColor = '#ccc';
+
+
+                    const newPledgeHTML = originalPledgeHTML.replace(
+                        '<strong><em>YOU</em>.</strong>',
+                        `<strong style="color: var(--primary-color);"><em>${name}</em>.</strong>`
+                    );
+
+                    if (pledgeOutputP) pledgeOutputP.innerHTML = newPledgeHTML;
+
+                    if (certName) certName.textContent = name;
+                    if (certDate) certDate.textContent = new Date().toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                    });
+
+                    const shareText = encodeURIComponent(
+                        `I just took the SafeReturn Road Safety Pledge! Join me in committing to safer roads. #SafeReturn #RoadSafetyHero`
+                    );
+                    if (whatsappBtn) whatsappBtn.href = `https://wa.me/?text=${shareText}`;
+
+                    if (certModal) certModal.style.display = 'flex';
+
+                    if (myConfetti) {
+                        myConfetti({
+                            particleCount: 150,
+                            spread: 90,
+                            origin: { y: 0.6 },
+                            zIndex: 10001
+                        });
+                    }
                 });
-            });
+            }
 
-            certCloseBtn.addEventListener('click', () => {
-                certModal.style.display = 'none';
-                heroModal.style.display = 'flex';
-            });
-
-            heroCloseBtn.addEventListener('click', () => {
-                heroModal.style.display = 'none';
-            });
-
-            downloadPdfBtn.addEventListener('click', () => {
-                const buttons = certificateContainer.querySelector('.cert-button-group');
-                const closeBtn = certificateContainer.querySelector('.cert-close-btn');
-
-                buttons.style.display = 'none';
-                closeBtn.style.display = 'none';
-
-                html2canvas(certificateContainer, {
-                    scale: 2,
-                    useCORS: true
-                }).then(canvas => {
-                    buttons.style.display = 'flex';
-                    closeBtn.style.display = 'block';
-
-                    const imgData = canvas.toDataURL('image/png');
-                    const { jsPDF } = window.jspdf;
-
-                    const pdfWidth = 210;
-                    const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                    const pdf = new jsPDF('p', 'mm', 'a4');
-
-                    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                    pdf.save('SafeReturn_Pledge.pdf');
-                }).catch(err => {
-                    console.error("Error generating PDF:", err);
-                    buttons.style.display = 'flex';
-                    closeBtn.style.display = 'block';
+            if (certCloseBtn) {
+                certCloseBtn.addEventListener('click', () => {
+                    if (certModal) certModal.style.display = 'none';
+                    if (heroModal) heroModal.style.display = 'flex';
                 });
-            });
+            }
 
-            printBtn.addEventListener('click', () => {
-                window.print();
-            });
+            if (heroCloseBtn) {
+                heroCloseBtn.addEventListener('click', () => {
+                    if (heroModal) heroModal.style.display = 'none';
+                });
+            }
 
-            certModal.addEventListener('click', (e) => {
-                if (e.target === certModal) {
-                    certModal.style.display = 'none';
-                    heroModal.style.display = 'flex';
-                }
-            });
+            if (downloadPdfBtn) {
+                downloadPdfBtn.addEventListener('click', () => {
+                    if (!certificateContainer) return;
 
-            heroModal.addEventListener('click', (e) => {
-                if (e.target === heroModal) {
-                    heroModal.style.display = 'none';
-                }
-            });
+                    const buttons = certificateContainer.querySelector('.cert-button-group');
+                    const closeBtn = certificateContainer.querySelector('.cert-close-btn');
+
+                    if (buttons) buttons.style.display = 'none';
+                    if (closeBtn) closeBtn.style.display = 'none';
+
+                    html2canvas(certificateContainer, {
+                        scale: 2,
+                        useCORS: true
+                    }).then(canvas => {
+                        if (buttons) buttons.style.display = 'flex';
+                        if (closeBtn) closeBtn.style.display = 'block';
+
+                        const imgData = canvas.toDataURL('image/png');
+                        const { jsPDF } = window.jspdf;
+
+                        const pdfWidth = 210;
+                        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                        const pdf = new jsPDF('p', 'mm', 'a4');
+
+                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                        pdf.save('SafeReturn_Pledge.pdf');
+                    }).catch(err => {
+                        console.error("Error generating PDF:", err);
+                        if (buttons) buttons.style.display = 'flex';
+                        if (closeBtn) closeBtn.style.display = 'block';
+                    });
+                });
+            }
+
+            if (printBtn) {
+                printBtn.addEventListener('click', () => {
+                    window.print();
+                });
+            }
+
+            if (certModal) {
+                certModal.addEventListener('click', (e) => {
+                    if (e.target === certModal) {
+                        certModal.style.display = 'none';
+                        if (heroModal) heroModal.style.display = 'flex';
+                    }
+                });
+            }
+
+            if (heroModal) {
+                heroModal.addEventListener('click', (e) => {
+                    if (e.target === heroModal) {
+                        heroModal.style.display = 'none';
+                    }
+                });
+            }
 
         });
     </script>
@@ -2133,8 +4492,7 @@
 
 
     <!-- footer -->
-    <footer
-        style="background-color: var(--dark-bg); color: var(--light-text); padding: 50px 0; font-family: 'Poppins', sans-serif;">
+    <footer id="main-footer">
         <div
             style="max-width: 1200px; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; padding: 0 20px;">
 
@@ -2199,116 +4557,94 @@
                     <a href="#" class="social-icon" aria-label="Follow us on World Wide Web">🌐</a>
                     <a href="#" class="social-icon" aria-label="Follow us on Facebook">📘</a>
                     <a href="#" class="social-icon" aria-label="Follow us on Twitter">🐦</a>
-                    <a href="#" class="social-icon" aria-label="Follow us on Instagram">📸</a>
+                    <a href="#" class="social-icon" aria-label="Follow us on LinkedIn">💼</a>
                 </div>
             </div>
+
+        </div> <!-- This closes the max-width div -->
+
+        <div class="footer-bottom-bar"
+            style="text-align: center; padding: 25px 20px; border-top: 1px solid var(--border-color); margin-top: 40px; background-color: rgba(0,0,0,0.2);">
+            <p style="margin: 0; font-size: 0.9em; color: #ccc;">
+                &copy; 2024 Road Safety Club (Vivek Yadav & Team). All Rights Reserved.
+            </p>
+            <p style="margin: 5px 0 0; font-size: 0.85em; color: #888;">
+                Disclaimer: This website is for educational and awareness purposes only. Always follow official traffic
+                laws.
+            </p>
         </div>
 
-        <div
-            style="text-align: center; padding-top: 25px; border-top: 1px solid var(--border-color); margin-top: 50px;">
-            <p>&copy; 2025 Road Safety Club. Drive Smart, Live Safe.</p>
-        </div>
-
-        <div id="cursor-wrapper" class="cursor-wrapper">
-            <div class="single-segment">
-                <div class="segment-color red"></div>
-                <div class="segment-color yellow"></div>
-                <div class="segment-color green"></div>
-            </div>
-        </div>
+        <!-- STYLING FOR THE FOOTER LINKS -->
         <style>
-            /* CSS Variables for easy color changes */
-            :root {
-                --dark-bg: #1a1a1a;
-                --light-text: #fff;
-                --accent-color: #ffcc00;
-                /* Yellow */
-                --accent-hover: #e6b800;
-                --border-color: #444;
-            }
-
-            footer {
-                /* This ensures the font-family from the inline style is the starting point */
-                font-family: 'Poppins', Arial, sans-serif !important;
-            }
-
             .footer-section {
                 flex: 1;
                 min-width: 280px;
-                margin-bottom: 20px;
             }
 
-            /* General Link Styling */
             .footer-link {
-                color: var(--light-text);
+                color: #ccc;
                 text-decoration: none;
-                transition: color 0.3s, transform 0.3s;
+                transition: color 0.3s, text-decoration 0.3s;
                 display: inline-block;
+                position: relative;
+            }
+
+            .footer-link::after {
+                content: '';
+                display: block;
+                width: 0;
+                height: 1px;
+                background: var(--accent-color);
+                transition: width 0.3s;
+                position: absolute;
+                bottom: -2px;
+                left: 0;
             }
 
             .footer-link:hover {
                 color: var(--accent-color);
-                transform: translateX(5px);
-                /* Subtle shift */
             }
 
-            /* Team Contact List specific styling - removes the phone icon for this block */
+            .footer-link:hover::after {
+                width: 100%;
+            }
+
+            .email-link {
+                font-weight: 600;
+                color: #fff;
+            }
+
+            .contact-list-link strong {
+                color: var(--accent-color);
+                font-weight: 600;
+            }
+
             .contact-list-link {
-                padding-left: 20px;
-                /* Indent slightly for visual hierarchy */
+                color: #ccc;
             }
 
-            /* Social Icon Animation */
+            .contact-list-link:hover {
+                color: #fff;
+            }
+
+            .contact-list-link:hover strong {
+                color: var(--accent-hover);
+            }
+
             .social-icon {
-                color: var(--light-text);
-                font-size: 24px;
-                margin-right: 15px;
-                /* Use margin-right for spacing */
-                display: inline-block;
-                transition: transform 0.3s, color 0.3s;
+                font-size: 1.8em;
+                margin: 0 10px;
+                color: #ccc;
                 text-decoration: none;
+                transition: color 0.3s, transform 0.3s;
             }
 
             .social-icon:hover {
                 color: var(--accent-color);
-                transform: translateY(-5px) scale(1.1);
-                /* Lift and enlarge */
-            }
-
-            /* Back to Top Button hover */
-            .back-to-top-btn:hover {
-                background-color: var(--accent-hover);
-                transform: translateY(-3px) scale(1.02);
-                /* Lift and slightly enlarge */
-                box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-            }
-
-            /* Clear focus state for accessibility */
-            .footer-link:focus,
-            .social-icon:focus,
-            .back-to-top-btn:focus {
-                outline: 2px solid var(--accent-color);
-                outline-offset: 3px;
-            }
-
-            /* Specific Link Icons (A friendlier touch) - Applied only to General/Email links */
-            .phone-link::before {
-                content: '📞 ';
-                color: var(--accent-color);
-            }
-
-            .email-link::before {
-                content: '📧 ';
-                color: var(--accent-color);
+                transform: scale(1.2);
             }
         </style>
-
     </footer>
-</body>
-
-</html>
-
-
 
 </body>
 
