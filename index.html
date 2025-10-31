@@ -38,7 +38,9 @@
             collection,
             getDocs,
             query,
-            updateDoc
+            updateDoc,
+            onSnapshot, // <-- NEW: Import onSnapshot
+            where // <-- NEW: Import where
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         // NEW: Import Firebase Storage
         import {
@@ -78,7 +80,10 @@
         window.appId = appId;
         window.currentUserId = null;
         window.currentUserData = {};
-        
+        // --- NEW: Global listeners for real-time data ---
+        window.rideRequestsListener = null;
+        window.activeAlertsListener = null;
+
         // --- FIX: Attach Firestore FUNCTIONS to window ---
         window.fs = {
             doc,
@@ -89,6 +94,8 @@
             getDocs,
             query,
             updateDoc,
+            onSnapshot, // <-- NEW: Add onSnapshot
+            where, // <-- NEW: Add where
             // NEW: Add storage functions to global fs object
             storage_ref: ref,
             uploadBytes,
@@ -132,6 +139,15 @@
             const communityProfileName = document.getElementById('community-profile-name');
             const communityRegisterTitle = document.getElementById('community-register-title');
             const communityRegisterSubtitle = document.getElementById('community-register-subtitle');
+            
+            // --- NEW: Role-specific action buttons ---
+            const travelerActions = document.getElementById('traveler-actions');
+            const driverActions = document.getElementById('driver-actions');
+            const emergencyActions = document.getElementById('emergency-actions');
+            const onDutyToggleContainer = document.getElementById('on-duty-toggle-container');
+            const onDutyToggle = document.getElementById('on-duty-toggle');
+            const onDutyStatusText = document.getElementById('on-duty-status-text');
+            // --- END NEW ---
 
             // --- NEW: Profile Dropdown Elements ---
             const profileDropdownName = document.getElementById('profile-dropdown-name');
@@ -228,10 +244,11 @@
                                     email: user.email,
                                     role: 'unknown',
                                     createdAt: new Date().toISOString(),
-                                    walletBalance: 0
+                                    walletBalance: 0,
+                                    onDuty: false // <-- NEW: Add onDuty status
                                 });
                                 userRole = 'unknown';
-                                userData = { role: 'unknown', email: user.email, walletBalance: 0 };
+                                userData = { role: 'unknown', email: user.email, walletBalance: 0, onDuty: false };
                             } else {
                                 userRole = 'guest';
                                 userName = 'Guest';
@@ -277,6 +294,12 @@
 
                     // --- NEW LOGIC TO SHOW CORRECT COMMUNITY VIEW ---
                     // --- FIX 2: These variables are now defined and this block will work ---
+                    // --- HIDE ALL ROLE-SPECIFIC ELEMENTS FIRST ---
+                    if (travelerActions) travelerActions.style.display = 'none';
+                    if (driverActions) driverActions.style.display = 'none';
+                    if (emergencyActions) emergencyActions.style.display = 'none';
+                    if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'none';
+                    
                     if (userRole === 'driver' || userRole === 'traveler' || userRole === 'emergency') {
                         // User is logged in AND has a role
                         communityLoginPrompt.style.display = 'none';
@@ -286,6 +309,55 @@
                         communityProfileName.textContent = userName;
                         communityProfileView.className = `profile-view-${userRole}`;
                         if (navUserInfo) navUserInfo.className = `dropdown profile-role-${userRole}`; // <!-- ADDED LINE -->
+
+                        // --- NEW: Show correct action buttons ---
+                        if(userRole === 'traveler') {
+                            if(travelerActions) travelerActions.style.display = 'flex';
+                        } else if (userRole === 'driver') {
+                            if(driverActions) driverActions.style.display = 'flex';
+                            if(onDutyToggleContainer) onDutyToggleContainer.style.display = 'flex';
+                        } else if (userRole === 'emergency') {
+                            if(emergencyActions) emergencyActions.style.display = 'flex';
+                            if(onDutyToggleContainer) onDutyToggleContainer.style.display = 'flex';
+                        }
+                        
+                        // --- NEW: Set On Duty Toggle State ---
+                        if (onDutyToggle) {
+                            const onDuty = window.currentUserData.onDuty || false;
+                            onDutyToggle.checked = onDuty;
+                            onDutyStatusText.textContent = onDuty ? 'On Duty' : 'Off Duty';
+                            onDutyStatusText.className = onDuty ? 'on-duty' : 'off-duty';
+                            
+                            // --- NEW: Add event listener for duty toggle ---
+                            // Remove old listener to avoid duplicates, then add new one
+                            const newOnDutyToggle = onDutyToggle.cloneNode(true);
+                            onDutyToggle.parentNode.replaceChild(newOnDutyToggle, onDutyToggle);
+                            
+                            newOnDutyToggle.addEventListener('change', async () => {
+                                const isChecked = newOnDutyToggle.checked;
+                                onDutyStatusText.textContent = isChecked ? 'On Duty' : 'Off Duty';
+                                onDutyStatusText.className = isChecked ? 'on-duty' : 'off-duty';
+                                
+                                try {
+                                    const userDocRef = doc(db, 'artifacts', appId, 'users', window.currentUserId);
+                                    await updateDoc(userDocRef, { onDuty: isChecked });
+                                    window.currentUserData.onDuty = isChecked; // Update local state
+                                    // Use the global showAlert
+                                    window.showAlert('Status Updated', `You are now ${isChecked ? 'On Duty' : 'Off Duty'}.`, 'success');
+                                } catch (error) {
+                                    console.error("Error updating duty status:", error);
+                                    // Use the global showAlert
+                                    window.showAlert('Update Failed', 'Could not update your status. Please try again.', 'error');
+                                    // Revert UI on failure
+                                    newOnDutyToggle.checked = !isChecked;
+                                    onDutyStatusText.textContent = !isChecked ? 'On Duty' : 'Off Duty';
+                                    onDutyStatusText.className = !isChecked ? 'on-duty' : 'off-duty';
+                                }
+                            });
+                            // --- END NEW ---
+                        }
+                        // --- END NEW ---
+
                     } else {
                         // User is logged in but has NO role (e.g., 'unknown' or 'guest')
                         communityLoginPrompt.style.display = 'none';
@@ -332,6 +404,13 @@
                     communityRegisterView.style.display = 'none';
                     communityProfileView.style.display = 'none';
                     communityProfileView.className = '';
+                    
+                    // --- NEW: Hide all role-specific elements ---
+                    if (travelerActions) travelerActions.style.display = 'none';
+                    if (driverActions) driverActions.style.display = 'none';
+                    if (emergencyActions) emergencyActions.style.display = 'none';
+                    if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'none';
+                    // --- END NEW ---
 
                     // --- NEW: Clear Modals ---
                     if (window.populateWallet) window.populateWallet();
@@ -570,7 +649,8 @@
                             email: email,
                             role: 'unknown',
                             createdAt: new Date().toISOString(),
-                            walletBalance: 0
+                            walletBalance: 0,
+                            onDuty: false // <-- NEW: Add onDuty status
                         });
 
                         // Auth listener (onAuthStateChanged) will handle UI changes
@@ -600,6 +680,10 @@
                         }
                         return;
                     }
+                    
+                    const submitBtn = driverForm.querySelector('.submit-btn');
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Registering...';
 
                     const formData = new FormData(driverForm);
                     const data = Object.fromEntries(formData.entries());
@@ -611,13 +695,13 @@
                         let photoUrl = null; // <-- NEW
 
                         // --- NEW: Upload photo if it exists ---
-                        if (driverPhotoFile) {
+                        if (window.driverPhotoFile) { // <-- Use global file var
                             if (driverRegError) {
                                 driverRegError.textContent = 'Uploading photo...'; // Show status
                                 driverRegError.style.display = 'block';
                             }
                             const photoRef = window.fs.storage_ref(window.storage, `artifacts/${appId}/user_photos/${userId}/profile.jpg`);
-                            const snapshot = await window.fs.uploadBytes(photoRef, driverPhotoFile);
+                            const snapshot = await window.fs.uploadBytes(photoRef, window.driverPhotoFile); // <-- Use global file var
                             photoUrl = await window.fs.getDownloadURL(snapshot.ref);
                             if (driverRegError) driverRegError.textContent = 'Photo uploaded!'; // Update status
                         }
@@ -634,17 +718,18 @@
                             vehicleMake: vehicleMake,
                             vehicleModel: vehicleModel,
                             destination: driverDestination,
+                            onDuty: false, // <-- NEW
                             createdAt: new Date().toISOString() // Or update, but new timestamp is fine
                         };
 
                         await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData, { merge: true });
 
                         // --- NEW: Reset file and preview ---
-                        driverPhotoFile = null;
+                        window.driverPhotoFile = null; // <-- Use global file var
                         const driverPreview = document.getElementById('driver-photo-preview');
                         const driverIcon = document.getElementById('driver-photo-icon');
-                        if(driverPreview) driverPreview.classList.remove('active');
-                        if(driverIcon) driverIcon.classList.remove('hidden');
+                        if (driverPreview) driverPreview.classList.remove('active');
+                        if (driverIcon) driverIcon.classList.remove('hidden');
                         // --- END NEW ---
 
                         // Show success
@@ -658,6 +743,9 @@
                             driverRegError.textContent = `Registration Failed: ${error.message}`;
                             driverRegError.style.display = 'block';
                         }
+                    } finally {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Register Driver';
                     }
                 });
             }
@@ -676,6 +764,10 @@
                         }
                         return;
                     }
+                    
+                    const submitBtn = travelerForm.querySelector('.submit-btn');
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Registering...';
 
                     const formData = new FormData(travelerForm);
                     const data = Object.fromEntries(formData.entries());
@@ -687,13 +779,13 @@
                         let photoUrl = null; // <-- NEW
 
                         // --- NEW: Upload photo if it exists ---
-                        if (travelerPhotoFile) {
+                        if (window.travelerPhotoFile) { // <-- Use global file var
                             if (travelerRegError) {
                                 travelerRegError.textContent = 'Uploading photo...'; // Show status
                                 travelerRegError.style.display = 'block';
                             }
                             const photoRef = window.fs.storage_ref(window.storage, `artifacts/${appId}/user_photos/${userId}/profile.jpg`);
-                            const snapshot = await window.fs.uploadBytes(photoRef, travelerPhotoFile);
+                            const snapshot = await window.fs.uploadBytes(photoRef, window.travelerPhotoFile); // <-- Use global file var
                             photoUrl = await window.fs.getDownloadURL(snapshot.ref);
                             if (travelerRegError) travelerRegError.textContent = 'Photo uploaded!'; // Update status
                         }
@@ -712,11 +804,11 @@
                         await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData, { merge: true });
 
                         // --- NEW: Reset file and preview ---
-                        travelerPhotoFile = null;
+                        window.travelerPhotoFile = null; // <-- Use global file var
                         const travelerPreview = document.getElementById('traveler-photo-preview');
                         const travelerIcon = document.getElementById('traveler-photo-icon');
-                        if(travelerPreview) travelerPreview.classList.remove('active');
-                        if(travelerIcon) travelerIcon.classList.remove('hidden');
+                        if (travelerPreview) travelerPreview.classList.remove('active');
+                        if (travelerIcon) travelerIcon.classList.remove('hidden');
                         // --- END NEW ---
 
                         if (travelerFormWrapper) travelerFormWrapper.style.display = 'none';
@@ -729,6 +821,9 @@
                             travelerRegError.textContent = `Registration Failed: ${error.message}`;
                             travelerRegError.style.display = 'block';
                         }
+                    } finally {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Register as Traveler';
                     }
                 });
             }
@@ -747,6 +842,10 @@
                         }
                         return;
                     }
+                    
+                    const submitBtn = emergencyForm.querySelector('.submit-btn');
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Registering...';
 
                     const formData = new FormData(emergencyForm);
                     const data = Object.fromEntries(formData.entries());
@@ -758,18 +857,18 @@
                         let photoUrl = null; // <-- NEW
 
                         // --- NEW: Upload photo if it exists ---
-                        if (emergencyPhotoFile) {
+                        if (window.emergencyPhotoFile) { // <-- Use global file var
                             if (emergencyRegError) {
                                 emergencyRegError.textContent = 'Uploading photo...'; // Show status
                                 emergencyRegError.style.display = 'block';
                             }
                             const photoRef = window.fs.storage_ref(window.storage, `artifacts/${appId}/user_photos/${userId}/profile.jpg`);
-                            const snapshot = await window.fs.uploadBytes(photoRef, emergencyPhotoFile);
+                            const snapshot = await window.fs.uploadBytes(photoRef, window.emergencyPhotoFile); // <-- Use global file var
                             photoUrl = await window.fs.getDownloadURL(snapshot.ref);
                             if (emergencyRegError) emergencyRegError.textContent = 'Photo uploaded!'; // Update status
                         }
                         // --- END NEW ---
-                        
+
                         const serviceData = {
                             email: user.email, // Get email from logged-in user
                             operatorName: serviceName,
@@ -781,6 +880,7 @@
                             vehicleId: serviceVehicleId,
                             vehicleType: serviceVehicleType,
                             destination: emergencyDestination,
+                            onDuty: false, // <-- NEW
                             bestRoute: formData.has('bestRoute'),
                             createdAt: new Date().toISOString()
                         };
@@ -788,11 +888,11 @@
                         await setDoc(doc(db, 'artifacts', appId, 'users', userId), serviceData, { merge: true });
 
                         // --- NEW: Reset file and preview ---
-                        emergencyPhotoFile = null;
+                        window.emergencyPhotoFile = null; // <-- Use global file var
                         const emergencyPreview = document.getElementById('emergency-photo-preview');
                         const emergencyIcon = document.getElementById('emergency-photo-icon');
-                        if(emergencyPreview) emergencyPreview.classList.remove('active');
-                        if(emergencyIcon) emergencyIcon.classList.remove('hidden');
+                        if (emergencyPreview) emergencyPreview.classList.remove('active');
+                        if (emergencyIcon) emergencyIcon.classList.remove('hidden');
                         // --- END NEW ---
 
                         if (emergencyFormWrapper) emergencyFormWrapper.style.display = 'none';
@@ -805,6 +905,9 @@
                             emergencyRegError.textContent = `Registration Failed: ${error.message}`;
                             emergencyRegError.style.display = 'block';
                         }
+                    } finally {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Register Service';
                     }
                 });
             }
@@ -830,6 +933,20 @@
             --accent-color: #ffcc00;
             --accent-hover: #e6b800;
             --border-color: #444;
+            
+            /* --- NEW Role Colors --- */
+            --traveler-color: #007bff;
+            --traveler-hover: #0056b3;
+            --traveler-bg: #f0f7ff;
+            
+            --driver-color: #4CAF50;
+            --driver-hover: #45a049;
+            --driver-bg: #f0fff0;
+            
+            --emergency-color: var(--primary-color);
+            --emergency-hover: var(--hover-color);
+            --emergency-bg: #fff0f0;
+            /* --- END NEW --- */
         }
 
         * {
@@ -1186,7 +1303,8 @@
             width: 38px;
             height: 38px;
             border-radius: 50%;
-            background: var(--primary-color); /* Fallback bg */
+            background: var(--primary-color);
+            /* Fallback bg */
             color: white;
             display: flex;
             align-items: center;
@@ -1196,7 +1314,8 @@
             font-family: 'Montserrat', sans-serif;
             border: 2px solid #fff;
             transition: all 0.3s ease;
-            object-fit: cover; /* Ensures image covers the circle */
+            object-fit: cover;
+            /* Ensures image covers the circle */
             cursor: pointer;
         }
 
@@ -1209,8 +1328,8 @@
 
         /* --- NEW: Profile Icon Color by Role --- */
         .profile-role-traveler .nav-user-photo-class {
-            background: #007bff;
-            border-color: #f0f7ff;
+            background: var(--traveler-color);
+            border-color: var(--traveler-bg);
             box-shadow: 0 0 10px rgba(0, 123, 255, 0.7);
         }
 
@@ -1219,8 +1338,8 @@
         }
 
         .profile-role-driver .nav-user-photo-class {
-            background: #4CAF50;
-            border-color: #f0fff0;
+            background: var(--driver-color);
+            border-color: var(--driver-bg);
             box-shadow: 0 0 10px rgba(76, 175, 80, 0.7);
         }
 
@@ -1229,9 +1348,9 @@
         }
 
         .profile-role-emergency .nav-user-photo-class {
-            background: var(--primary-color);
+            background: var(--emergency-color);
             /* Already red */
-            border-color: #fff0f0;
+            border-color: var(--emergency-bg);
             box-shadow: 0 0 10px rgba(255, 77, 77, 0.7);
         }
 
@@ -1356,6 +1475,7 @@
             background: #fdfdfd;
             border-bottom: 1px solid #eee;
         }
+
         .profile-photo-options a {
             flex: 1;
             text-align: center;
@@ -1365,17 +1485,20 @@
             flex-direction: column;
             color: #555 !important;
         }
+
         .profile-photo-options a i {
             margin: 0 !important;
             width: auto !important;
             font-size: 1.4em !important;
             color: var(--primary-color);
         }
+
         .profile-photo-options a:hover {
             background: #f5f5f5 !important;
             color: var(--primary-color) !important;
         }
-         /* --- END NEW --- */
+
+        /* --- END NEW --- */
 
         /* Standard Menu Items */
         #profile-dropdown-menu li a {
@@ -1481,6 +1604,8 @@
             box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
             transform: scale(0.95);
             transition: transform 0.3s ease;
+            max-height: 90vh; /* <-- NEW */
+            overflow-y: auto; /* <-- NEW */
         }
 
         .profile-modal-overlay.active .profile-modal-content {
@@ -1504,6 +1629,22 @@
             color: var(--primary-color) !important;
             border-bottom: 2px solid #eee !important;
         }
+        
+        /* --- NEW: Modal Role-Specific Header Colors --- */
+        #book-ride-modal .profile-modal-content h2 {
+            color: var(--traveler-color) !important;
+            border-bottom-color: var(--traveler-color) !important;
+        }
+        #ride-requests-modal .profile-modal-content h2 {
+            color: var(--driver-color) !important;
+            border-bottom-color: var(--driver-color) !important;
+        }
+        #active-alerts-modal .profile-modal-content h2,
+        #priority-route-modal .profile-modal-content h2 {
+            color: var(--emergency-color) !important;
+            border-bottom-color: var(--emergency-color) !important;
+        }
+        /* --- END NEW --- */
 
 
         .profile-modal-content p {
@@ -1603,8 +1744,13 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
+        
+        .submit-review-btn:disabled {
+             background: #ccc;
+             cursor: not-allowed;
+        }
 
-        .submit-review-btn:hover {
+        .submit-review-btn:hover:not(:disabled) {
             background: var(--hover-color);
         }
 
@@ -1765,20 +1911,30 @@
             border-radius: 8px;
             margin-top: 20px;
         }
-
+        
+        /* Use existing form styles */
         #add-money-section .form-group {
-            margin-bottom: 15px;
+             margin-bottom: 20px;
         }
-
         #add-money-section .form-group label {
-            font-size: 0.9em;
-            margin-bottom: 5px;
+            display: block;
+            margin-bottom: 8px;
+            color: var(--secondary-color);
+            font-weight: 600;
         }
-
         #add-money-section .form-group input {
-            padding: 10px 12px;
-            font-size: 1.2em;
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
         }
+        #add-money-section .form-group input:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 5px rgba(255, 77, 77, 0.3);
+        }
+        /* --- */
 
         #payment-modal h4 {
             font-family: 'Montserrat', sans-serif;
@@ -1888,6 +2044,72 @@
             font-weight: 700;
             color: var(--secondary-color);
         }
+        
+        /* --- NEW: Styles for Ride Requests & Alerts Modals --- */
+        .modal-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        .modal-list-item {
+            display: flex;
+            gap: 15px;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+        }
+        .modal-list-item .icon {
+            font-size: 1.8em;
+            flex-shrink: 0;
+        }
+        .modal-list-item .details {
+            flex-grow: 1;
+        }
+        .modal-list-item .details p {
+            font-size: 1em;
+            font-weight: 600;
+            color: #333;
+            margin: 0;
+        }
+        .modal-list-item .details span {
+            font-size: 0.9em;
+            color: #777;
+            display: block;
+            line-height: 1.4;
+        }
+        
+        /* Ride Request Item */
+        .ride-request-item .icon { color: var(--traveler-color); }
+        .ride-request-item .accept-btn {
+            background: var(--driver-color);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.3s;
+            align-self: center;
+        }
+        .ride-request-item .accept-btn:hover { background: var(--driver-hover); }
+        
+        /* Alert Item */
+        .alert-item .icon { color: var(--emergency-color); }
+        .alert-item .details span {
+            font-weight: 600;
+            color: #555;
+        }
+        .alert-item .details .timestamp {
+            font-size: 0.8em;
+            font-weight: normal;
+            color: #888;
+        }
+        /* --- END NEW --- */
+        
 
         /* --- NEW: Styles for Safety Modal --- */
         .safety-features {
@@ -2385,11 +2607,11 @@
         }
 
         .reg-card.driver:hover {
-            border-color: #4CAF50;
+            border-color: var(--driver-color);
         }
 
         .reg-card.emergency:hover {
-            border-color: var(--primary-color);
+            border-color: var(--emergency-color);
         }
 
         .reg-card-icon {
@@ -2398,11 +2620,11 @@
         }
 
         .reg-card.driver .reg-card-icon {
-            color: #4CAF50;
+            color: var(--driver-color);
         }
 
         .reg-card.emergency .reg-card-icon {
-            color: var(--primary-color);
+            color: var(--emergency-color);
         }
 
         .reg-card h3 {
@@ -2435,29 +2657,29 @@
         }
 
         .reg-card.driver .reg-btn {
-            background: #4CAF50;
+            background: var(--driver-color);
         }
 
         .reg-card.driver .reg-btn:hover {
-            background: #45a049;
+            background: var(--driver-hover);
         }
 
         /* === NEW TRAVELER CARD STYLES === */
         .reg-card.traveler:hover {
-            border-color: #007bff;
+            border-color: var(--traveler-color);
             /* Blue */
         }
 
         .reg-card.traveler .reg-card-icon {
-            color: #007bff;
+            color: var(--traveler-color);
         }
 
         .reg-card.traveler .reg-btn {
-            background: #007bff;
+            background: var(--traveler-color);
         }
 
         .reg-card.traveler .reg-btn:hover {
-            background: #0056b3;
+            background: var(--traveler-hover);
         }
 
         /* === END TRAVELER CARD STYLES === */
@@ -2601,8 +2823,15 @@
             transition: all 0.3s ease;
             margin-top: 10px;
         }
+        
+        .submit-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
 
-        .submit-btn:hover {
+        .submit-btn:hover:not(:disabled) {
             background: var(--hover-color);
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(255, 77, 77, 0.3);
@@ -2664,30 +2893,30 @@
         }
 
         .submit-btn.emergency-btn {
-            background: var(--primary-color);
+            background: var(--emergency-color);
         }
 
-        .submit-btn.emergency-btn:hover {
-            background: var(--hover-color);
+        .submit-btn.emergency-btn:hover:not(:disabled) {
+            background: var(--emergency-hover);
             box-shadow: 0 5px 15px rgba(255, 77, 77, 0.3);
         }
 
         .submit-btn.driver-btn {
-            background: #4CAF50;
+            background: var(--driver-color);
         }
 
-        .submit-btn.driver-btn:hover {
-            background: #45a049;
+        .submit-btn.driver-btn:hover:not(:disabled) {
+            background: var(--driver-hover);
             box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
         }
 
         /* === NEW TRAVELER BUTTON STYLE === */
         .submit-btn.traveler-btn {
-            background: #007bff;
+            background: var(--traveler-color);
         }
 
-        .submit-btn.traveler-btn:hover {
-            background: #0056b3;
+        .submit-btn.traveler-btn:hover:not(:disabled) {
+            background: var(--traveler-hover);
             box-shadow: 0 5px 15px rgba(0, 123, 255, 0.3);
         }
 
@@ -2703,7 +2932,7 @@
             padding: 12px;
         }
 
-        .map-preview-btn:hover {
+        .map-preview-btn:hover:not(:disabled) {
             background-color: #5a6268;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
@@ -3062,13 +3291,28 @@
             text-align: center;
             font-weight: 600;
         }
+        
+        /* --- NEW: Form Error for Modals --- */
+        .modal-form-error {
+            color: var(--primary-color);
+            background: #ffecec;
+            border: 1px solid var(--primary-color);
+            border-radius: 8px;
+            padding: 10px 15px;
+            margin-top: 15px;
+            display: none; /* Hidden by default */
+            text-align: center;
+            font-weight: 600;
+        }
+        /* --- END NEW --- */
 
         /* === NEW: Circular Photo Uploader === */
         .profile-photo-uploader {
             position: relative;
             width: 120px;
             height: 120px;
-            margin: 0 auto 25px; /* Center it */
+            margin: 0 auto 25px;
+            /* Center it */
             cursor: pointer;
             border-radius: 50%;
             background: #f0f0f0;
@@ -3077,37 +3321,47 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden; /* To keep image circular */
+            overflow: hidden;
+            /* To keep image circular */
         }
+
         .profile-photo-uploader:hover {
             border-color: var(--primary-color);
             background: #e9e9e9;
         }
+
         .profile-photo-uploader .upload-icon {
             font-size: 3em;
             color: #aaa;
             transition: all 0.3s ease;
         }
+
         .profile-photo-uploader:hover .upload-icon {
             color: var(--primary-color);
             transform: scale(1.1);
         }
+
         .profile-photo-uploader .photo-preview {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            object-fit: cover; /* This is key */
+            object-fit: cover;
+            /* This is key */
             border-radius: 50%;
-            display: none; /* Hide by default */
+            display: none;
+            /* Hide by default */
         }
+
         .profile-photo-uploader .photo-preview.active {
             display: block;
         }
+
         .profile-photo-uploader .upload-icon.hidden {
             display: none;
         }
+
         /* === END NEW === */
 
         /* === NEW: File Input Styles === */
@@ -3117,6 +3371,7 @@
             color: var(--secondary-color);
             font-weight: 600;
         }
+
         .form-group-file input[type="file"] {
             width: 100%;
             padding: 10px;
@@ -3125,6 +3380,7 @@
             font-size: 0.95em;
             background: #f9f9f9;
         }
+
         .form-group-file input[type="file"]::file-selector-button {
             background: var(--secondary-color);
             color: white;
@@ -3135,9 +3391,11 @@
             margin-right: 10px;
             transition: background 0.3s;
         }
+
         .form-group-file input[type="file"]::file-selector-button:hover {
             background: #555;
         }
+
         /* === END NEW === */
 
         /* === NEW PROFILE VIEW STYLES === */
@@ -3151,44 +3409,44 @@
 
         /* Driver Profile = Green */
         .profile-view-driver {
-            border-color: #4CAF50 !important;
-            background: #f0fff0 !important;
+            border-color: var(--driver-color) !important;
+            background: var(--driver-bg) !important;
         }
 
         .profile-view-driver h2 i {
-            color: #4CAF50;
+            color: var(--driver-color);
         }
 
         .profile-view-driver #community-profile-name {
-            color: #4CAF50;
+            color: var(--driver-color);
         }
 
         /* Traveler Profile = Blue */
         .profile-view-traveler {
-            border-color: #007bff !important;
-            background: #f0f7ff !important;
+            border-color: var(--traveler-color) !important;
+            background: var(--traveler-bg) !important;
         }
 
         .profile-view-traveler h2 i {
-            color: #007bff;
+            color: var(--traveler-color);
         }
 
         .profile-view-traveler #community-profile-name {
-            color: #007bff;
+            color: var(--traveler-color);
         }
 
         /* Emergency Profile = Red */
         .profile-view-emergency {
-            border-color: var(--primary-color) !important;
-            background: #fff0f0 !important;
+            border-color: var(--emergency-color) !important;
+            background: var(--emergency-bg) !important;
         }
 
         .profile-view-emergency h2 i {
-            color: var(--primary-color);
+            color: var(--emergency-color);
         }
 
         .profile-view-emergency #community-profile-name {
-            color: var(--primary-color);
+            color: var(--emergency-color);
         }
 
         /* Default/Unknown/Guest */
@@ -3201,6 +3459,121 @@
         .profile-view-guest #community-profile-name {
             color: var(--secondary-color);
         }
+        
+        /* --- NEW: Role Action Buttons --- */
+        .profile-action-buttons {
+            margin-top: 25px;
+            padding-top: 25px;
+            border-top: 2px dashed #ccc;
+        }
+        
+        .profile-view-traveler .profile-action-buttons { border-top-color: var(--traveler-color); }
+        .profile-view-driver .profile-action-buttons { border-top-color: var(--driver-color); }
+        .profile-view-emergency .profile-action-buttons { border-top-color: var(--emergency-color); }
+        
+        .role-actions {
+            display: flex; /* Will be set to 'flex' by JS */
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+        }
+        
+        .profile-btn {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 1em;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        .profile-btn i {
+            font-size: 1.1em;
+        }
+        
+        .profile-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+        }
+        
+        .profile-btn-traveler { background-color: var(--traveler-color); }
+        .profile-btn-traveler:hover { background-color: var(--traveler-hover); }
+        
+        .profile-btn-driver { background-color: var(--driver-color); }
+        .profile-btn-driver:hover { background-color: var(--driver-hover); }
+
+        .profile-btn-emergency { background-color: var(--emergency-color); }
+        .profile-btn-emergency:hover { background-color: var(--emergency-hover); }
+        
+        /* --- NEW: On Duty Toggle --- */
+        .on-duty-toggle-container {
+            display: flex; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        #on-duty-status-text {
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+        #on-duty-status-text.on-duty { color: var(--driver-color); }
+        #on-duty-status-text.off-duty { color: #777; }
+        .profile-view-emergency #on-duty-status-text.on-duty { color: var(--emergency-color); }
+
+        .duty-toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .duty-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .duty-toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .duty-toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .duty-toggle-slider {
+            background-color: var(--driver-color);
+        }
+        .profile-view-emergency input:checked + .duty-toggle-slider {
+             background-color: var(--emergency-color);
+        }
+        input:checked + .duty-toggle-slider:before {
+            transform: translateX(26px);
+        }
+        /* --- END NEW --- */
 
         /* === END NEW PROFILE STYLES === */
 
@@ -3395,7 +3768,8 @@
             <!-- This shows when logged IN -->
             <li id="nav-user-info" class="dropdown" style="display: none; align-items: center; gap: 15px;">
                 <!-- NEW: Profile Photo Circle -->
-                <img id="nav-user-photo" src="https://placehold.co/40x40/ccc/eee?text=G" alt="Profile" class="nav-user-photo-class">
+                <img id="nav-user-photo" src="https://placehold.co/40x40/ccc/eee?text=G" alt="Profile"
+                    class="nav-user-photo-class">
                 <!-- <a href="#" id="nav-logout-btn" style="color: #fff; background: var(--primary-color); padding: 5px 10px; border-radius: 5px;">Logout</a> -->
                 <!-- OLD LOGOUT BTN - REMOVED -->
 
@@ -3593,8 +3967,42 @@
             <div id="community-profile-view" style="display: none;"> <!-- Class will be added by JS -->
                 <h2><i class="fas fa-user-check"></i> Welcome to the Community!</h2>
                 <p style="font-size: 1.2em;">You are logged in as: <strong id="community-profile-name"></strong></p>
-                <p>You can now access community features, manage your profile, and help keep our roads safe.</p>
-                <!-- You could add buttons here like "Edit My Profile" or "View Hazard Map" -->
+                
+                <!-- === NEW: On Duty Toggle === -->
+                <div id="on-duty-toggle-container" class="on-duty-toggle-container" style="display: none;">
+                    <span id="on-duty-status-text" class="off-duty">Off Duty</span>
+                    <label class="duty-toggle">
+                        <input type="checkbox" id="on-duty-toggle">
+                        <span class="duty-toggle-slider"></span>
+                    </label>
+                </div>
+                <!-- === END NEW === -->
+                
+                <!-- === NEW: Role Action Buttons === -->
+                <div class="profile-action-buttons">
+                    <!-- Traveler Buttons -->
+                    <div id="traveler-actions" class="role-actions" style="display: none;">
+                        <button id="book-my-ride-btn" class="profile-btn profile-btn-traveler">
+                            <i class="fas fa-taxi"></i> Book My Ride
+                        </button>
+                    </div>
+                    <!-- Driver Buttons -->
+                    <div id="driver-actions" class="role-actions" style="display: none;">
+                        <button id="view-ride-requests-btn" class="profile-btn profile-btn-driver">
+                            <i class="fas fa-list-alt"></i> View Ride Requests
+                        </button>
+                    </div>
+                    <!-- Emergency Buttons -->
+                    <div id="emergency-actions" class="role-actions" style="display: none;">
+                        <button id="view-active-alerts-btn" class="profile-btn profile-btn-emergency">
+                            <i class="fas fa-exclamation-triangle"></i> View Active Alerts
+                        </button>
+                        <button id="get-priority-route-btn" class="profile-btn profile-btn-emergency" style="background-color: #555;">
+                            <i class="fas fa-route"></i> Get Priority Route
+                        </button>
+                    </div>
+                </div>
+                <!-- === END NEW === -->
             </div>
         </section>
 
@@ -3634,7 +4042,8 @@
             <div id="custom-alert-icon" style="font-size: 3em; margin-bottom: 15px;">
                 <!-- Icon will be set by JS -->
             </div>
-            <h3 id="custom-alert-title" style="font-size: 1.5em; color: var(--secondary-color); margin-bottom: 10px;"></h3>
+            <h3 id="custom-alert-title" style="font-size: 1.5em; color: var(--secondary-color); margin-bottom: 10px;">
+            </h3>
             <p id="custom-alert-message" style="font-size: 1em; color: #555; line-height: 1.6;"></p>
             <button id="custom-alert-close-btn" class="submit-btn" style="margin-top: 20px;">OK</button>
         </div>
@@ -3704,7 +4113,8 @@
                 </div>
                 <form id="driver-registration-form">
                     <!-- === NEW CIRCULAR PHOTO UPLOADER === -->
-                    <div class="profile-photo-uploader" id="driver-photo-uploader-port" title="Click to add profile photo">
+                    <div class="profile-photo-uploader" id="driver-photo-uploader-port"
+                        title="Click to add profile photo">
                         <i class="fas fa-camera upload-icon" id="driver-photo-icon"></i>
                         <img src="#" alt="Profile Preview" class="photo-preview" id="driver-photo-preview">
                     </div>
@@ -3782,7 +4192,8 @@
                 </div>
                 <form id="traveler-registration-form">
                     <!-- === NEW CIRCULAR PHOTO UPLOADER === -->
-                    <div class="profile-photo-uploader" id="traveler-photo-uploader-port" title="Click to add profile photo">
+                    <div class="profile-photo-uploader" id="traveler-photo-uploader-port"
+                        title="Click to add profile photo">
                         <i class="fas fa-camera upload-icon" id="traveler-photo-icon"></i>
                         <img src="#" alt="Profile Preview" class="photo-preview" id="traveler-photo-preview">
                     </div>
@@ -3822,7 +4233,8 @@
                 </div>
                 <form id="emergency-registration-form">
                     <!-- === NEW CIRCULAR PHOTO UPLOADER === -->
-                    <div class="profile-photo-uploader" id="emergency-photo-uploader-port" title="Click to add profile photo">
+                    <div class="profile-photo-uploader" id="emergency-photo-uploader-port"
+                        title="Click to add profile photo">
                         <i class="fas fa-camera upload-icon" id="emergency-photo-icon"></i>
                         <img src="#" alt="Profile Preview" class="photo-preview" id="emergency-photo-preview">
                     </div>
@@ -4076,7 +4488,9 @@
 
             <ul class="ride-history-list">
                 <!-- Static content removed, will be populated by JS -->
-                <li><p>Loading ride history...</p></li>
+                <li>
+                    <p>Loading ride history...</p>
+                </li>
             </ul>
         </div>
     </div>
@@ -4141,7 +4555,9 @@
 
             <ul class="rewards-list">
                 <!-- Static content removed, will be populated by JS -->
-                <li><p>Loading rewards...</p></li>
+                <li>
+                    <p>Loading rewards...</p>
+                </li>
             </ul>
         </div>
     </div>
@@ -4155,6 +4571,86 @@
                 built)</p>
         </div>
     </div>
+    
+    <!-- === NEW: ROLE-SPECIFIC MODALS === -->
+
+    <!-- 1. Book a Ride Modal (Traveler) -->
+    <div id="book-ride-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-taxi"></i> Book a Ride</h2>
+            <p>Find a safe ride from our community of registered drivers.</p>
+            <form id="book-ride-form" style="margin-top: 20px;">
+                <div class="form-group">
+                    <label for="pickup-location"><i class="fas fa-map-marker-alt"></i> From:</label>
+                    <input type="text" id="pickup-location" name="pickup-location" placeholder="Enter pickup location" required>
+                </div>
+                <div class="form-group">
+                    <label for="dropoff-location"><i class="fas fa-map-pin"></i> To:</label>
+                    <input type="text" id="dropoff-location" name="dropoff-location" placeholder="Enter destination" required>
+                </div>
+                <div class="form-group">
+                    <label for="ride-vehicle-type"><i class="fas fa-car-side"></i> Vehicle Type:</label>
+                    <select id="ride-vehicle-type" name="ride-vehicle-type">
+                        <option value="any">Any</option>
+                        <option value="car">Car</option>
+                        <option value="motorcycle">Motorcycle</option>
+                    </select>
+                </div>
+                <div id="book-ride-error" class="modal-form-error"></div>
+                <button type="submit" class="submit-btn traveler-btn">Find My Ride</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 2. Ride Requests Modal (Driver) -->
+    <div id="ride-requests-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-list-alt"></i> Ride Requests</h2>
+            <p>Available ride requests from travelers. New requests will appear here.</p>
+            <ul id="ride-requests-list" class="modal-list">
+                <!-- Populated by JS -->
+                <li><p>Loading requests...</p></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 3. Active Alerts Modal (Emergency) -->
+    <div id="active-alerts-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-exclamation-triangle"></i> Active Alerts</h2>
+            <p>Real-time alerts reported by community members and drivers.</p>
+             <ul id="active-alerts-list" class="modal-list">
+                <!-- Populated by JS -->
+                <li><p>Loading alerts...</p></li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- 4. Priority Route Modal (Emergency) -->
+    <div id="priority-route-modal" class="profile-modal-overlay">
+        <div class="profile-modal-content">
+            <span class="profile-modal-close">&times;</span>
+            <h2><i class="fas fa-route"></i> Priority Route</h2>
+            <p>Get an AI-optimized route for your emergency vehicle.</p>
+            <form id="priority-route-form" style="margin-top: 20px;">
+                <div class="form-group">
+                    <label for="incident-location"><i class="fas fa-map-marker-alt"></i> From (Your Location):</label>
+                    <input type="text" id="incident-location" name="incident-location" placeholder="e.g., City Hospital" required>
+                </div>
+                <div class="form-group">
+                    <label for="incident-destination"><i class="fas fa-map-pin"></i> To (Incident Location):</label>
+                    <input type="text" id="incident-destination" name="incident-destination" placeholder="Enter incident address" required>
+                </div>
+                <div id="priority-route-error" class="modal-form-error"></div>
+                <button type="submit" class="submit-btn emergency-btn">Generate Route</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- === END NEW ROLE-SPECIFIC MODALS === -->
 
     <!-- === END NEW Profile Modals === -->
 
@@ -4275,6 +4771,9 @@
 
                 alertModal.classList.add('active');
             };
+            
+            // --- NEW: Make showAlert global ---
+            window.showAlert = showAlert;
 
             const closeAlertModal = () => {
                 if (alertModal) alertModal.classList.remove('active');
@@ -4322,7 +4821,7 @@
                 // Close the profile dropdown
                 const profileMenu = document.getElementById('profile-dropdown-menu');
                 if (profileMenu) profileMenu.classList.remove('active');
-                
+
                 showAlert('Uploading...', 'Your photo is being uploaded. Please wait.', 'info');
 
                 const userId = window.currentUserId;
@@ -4356,7 +4855,7 @@
                         if (window.currentUserData) {
                             window.currentUserData.photoUrl = fileDownloadURL;
                         }
-                        
+
                         showAlert('Success', 'Profile photo updated!', 'success');
                     })
                     .catch(error => {
@@ -4402,7 +4901,7 @@
                             icon.classList.add('hidden');
                         };
                         reader.readAsDataURL(file);
-                        
+
                         // Store the file object
                         if (fileStore === 'driver') window.driverPhotoFile = file;
                         if (fileStore === 'traveler') window.travelerPhotoFile = file;
@@ -4479,6 +4978,18 @@
                 if (closeBtn) {
                     closeBtn.addEventListener('click', () => {
                         modal.classList.remove('active');
+                        
+                        // --- NEW: Detach listeners on close ---
+                        if(modal.id === 'ride-requests-modal' && window.rideRequestsListener) {
+                            window.rideRequestsListener(); // Detach
+                            window.rideRequestsListener = null;
+                            console.log('Detached ride requests listener.');
+                        }
+                        if(modal.id === 'active-alerts-modal' && window.activeAlertsListener) {
+                            window.activeAlertsListener(); // Detach
+                            window.activeAlertsListener = null;
+                            console.log('Detached active alerts listener.');
+                        }
                     });
                 }
 
@@ -4486,6 +4997,18 @@
                 modal.addEventListener('click', (e) => {
                     if (e.target === modal) {
                         modal.classList.remove('active');
+                        
+                        // --- NEW: Detach listeners on close ---
+                        if(modal.id === 'ride-requests-modal' && window.rideRequestsListener) {
+                            window.rideRequestsListener(); // Detach
+                            window.rideRequestsListener = null;
+                            console.log('Detached ride requests listener.');
+                        }
+                        if(modal.id === 'active-alerts-modal' && window.activeAlertsListener) {
+                            window.activeAlertsListener(); // Detach
+                            window.activeAlertsListener = null;
+                            console.log('Detached active alerts listener.');
+                        }
                     }
                 });
             });
@@ -4530,799 +5053,1033 @@
             });
 
             if (starContainer) {
-                starContainer.addEventListener('mouseout', () => {
-                    // Reset to selected rating
-                    stars.forEach(star => {
-                        // Use .selected class to check, not style.color
-                        if (star.classList.contains('selected')) {
-                            star.style.color = 'var(--accent-color)';
+                starContainer.addEventListener('mouseleave', () => {
+                    // Reset to the last clicked rating
+                    stars.forEach(s => {
+                        if (s.dataset.value <= currentRating) {
+                            s.style.color = 'var(--accent-color)';
                         } else {
-                            star.style.color = '#ccc';
+                            s.style.color = '#ccc';
                         }
                     });
                 });
             }
 
             if (submitReviewBtn) {
-                submitReviewBtn.addEventListener('click', async () => {
-                    const comment = document.getElementById('review-comment').value;
-                    
-                    if (!window.currentUserId || !window.db) {
-                        showAlert('Not Logged In', 'You must be logged in to leave a review.', 'error');
-                        return;
-                    }
-
+                submitReviewBtn.addEventListener('click', () => {
                     if (currentRating === 0) {
-                         showAlert('No Rating', 'Please select at least one star.', 'warning');
+                        showAlert('Rating Required', 'Please select a star rating before submitting.', 'warning');
                         return;
                     }
 
-                    submitReviewBtn.disabled = true;
+                    // Simulate submission
                     submitReviewBtn.textContent = 'Submitting...';
+                    submitReviewBtn.disabled = true;
 
-                    try {
-                        const reviewData = {
-                            userId: window.currentUserId,
-                            name: window.currentUserData.name || 'Anonymous',
-                            rating: currentRating,
-                            comment: comment,
-                            createdAt: new Date().toISOString()
-                        };
-                        // Save to a new public collection: /artifacts/{appId}/public/reviews
-                        // --- FIX: Use window.fs.addDoc and window.fs.collection ---
-                        await window.fs.addDoc(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'reviews'), reviewData);
-
-                        // Show success message
+                    setTimeout(() => {
+                        // Show success
                         if (ratingContent) ratingContent.style.display = 'none';
                         if (ratingSuccess) ratingSuccess.style.display = 'block';
 
-                        // Reset modal after a delay
+                        // Reset after 2.5 seconds
                         setTimeout(() => {
-                            // Hide modal
                             if (ratingModal) ratingModal.classList.remove('active');
-
-                            // Reset content
-                            setTimeout(() => {
-                                if (ratingContent) ratingContent.style.display = 'block';
-                                if (ratingSuccess) ratingSuccess.style.display = 'none';
-                                setRating(0); // Reset stars
-                                document.getElementById('review-comment').value = '';
-                            }, 400);
+                            // Restore modal for next time
+                            if (ratingContent) ratingContent.style.display = 'block';
+                            if (ratingSuccess) ratingSuccess.style.display = 'none';
+                            if (submitReviewBtn) {
+                                submitReviewBtn.textContent = 'Submit Review';
+                                submitReviewBtn.disabled = false;
+                            }
+                            // Reset rating
+                            setRating(0);
+                            const reviewComment = document.getElementById('review-comment');
+                            if (reviewComment) reviewComment.value = '';
                         }, 2500);
 
-                    } catch (error) {
-                        console.error("Error submitting review:", error);
-                        showAlert('Error', 'Could not submit your review. Please try again.', 'error');
-                    } finally {
-                        submitReviewBtn.disabled = false;
-                        submitReviewBtn.textContent = 'Submit Review';
-                    }
+                    }, 1000);
                 });
             }
-
             // --- END Star Rating Logic ---
 
+            // --- NEW: Populate Wallet Modal ---
+            window.populateWallet = () => {
+                const walletModal = document.getElementById('payment-modal');
+                if (!walletModal) return;
 
-            // --- Accordion Logic (Tips & Education) ---
-            const accordionItems = document.querySelectorAll('.tip, .edu-item');
+                const balanceEl = walletModal.querySelector('.wallet-balance h3');
+                const addMoneySection = document.getElementById('add-money-section');
+                const addMoneyAmountInput = document.getElementById('add-money-amount');
 
-            accordionItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    const details = item.nextElementSibling;
-                    if (!details || !details.classList.contains('tip-details') && !details.classList.contains('edu-details')) return;
-
-                    const isOpen = details.classList.contains('open');
-
-                    document.querySelectorAll('.tip-details, .edu-details').forEach(d => {
-                        d.classList.remove('open');
-                        d.style.maxHeight = null;
-                        if (d.previousElementSibling) {
-                            d.previousElementSibling.classList.remove('active');
-                        }
-                    });
-
-                    if (!isOpen) {
-                        item.classList.add('active');
-                        details.classList.add('open');
-                        details.style.maxHeight = details.scrollHeight + 'px';
-                    }
-                });
-            });
-
-            // --- NEW: FAQ Accordion Logic ---
-            const faqItems = document.querySelectorAll('.faq-item');
-            faqItems.forEach(item => {
-                const title = item.querySelector('.faq-title');
-
-                const toggleItem = () => {
-                    const details = item.querySelector('.faq-details');
-                    const isOpen = item.classList.contains('active');
-
-                    if (isOpen) {
-                        item.classList.remove('active');
-                        details.classList.remove('open');
-                        details.style.maxHeight = null;
-                    } else {
-                        item.classList.add('active');
-                        details.classList.add('open');
-                        details.style.maxHeight = details.scrollHeight + 'px';
-                    }
-                };
-
-                if (title) {
-                    title.addEventListener('click', toggleItem);
-                    // Add keyboard support
-                    title.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            toggleItem();
-                        }
-                    });
-                }
-            });
-            // --- END NEW FAQ Logic ---
-
-
-            // --- NEW: Wallet Modal Logic ---
-            const populateWallet = () => {
-                const balanceEl = document.querySelector('#payment-modal .wallet-balance h3');
-                if (!balanceEl) return;
-
-                if (window.currentUserId && window.currentUserData.walletBalance) {
-                    balanceEl.textContent = `₹${parseFloat(window.currentUserData.walletBalance).toFixed(2)}`;
+                if (window.currentUserData && window.currentUserData.walletBalance !== undefined) {
+                    const balance = window.currentUserData.walletBalance;
+                    if (balanceEl) balanceEl.textContent = `₹${balance.toFixed(2)}`;
                 } else {
-                    balanceEl.textContent = '₹0.00';
+                    if (balanceEl) balanceEl.textContent = '₹0.00';
                 }
-            };
-            window.populateWallet = populateWallet; // Attach to window so module script can call it.
 
+                // Reset add money section
+                if (addMoneySection) addMoneySection.style.display = 'none';
+                if (addMoneyAmountInput) addMoneyAmountInput.value = '';
+            };
+
+            // Add Money button toggle
             const showAddMoneyBtn = document.getElementById('show-add-money-btn');
             const addMoneySection = document.getElementById('add-money-section');
-            const confirmAddMoneyBtn = document.getElementById('confirm-add-money-btn');
-            const addMoneyAmountInput = document.getElementById('add-money-amount');
-
-            if (showAddMoneyBtn) {
+            if (showAddMoneyBtn && addMoneySection) {
                 showAddMoneyBtn.addEventListener('click', () => {
-                    // Toggle the add money section
-                    if (addMoneySection.style.display === 'block') {
-                        addMoneySection.style.display = 'none';
-                        showAddMoneyBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Add Money';
-                    } else {
-                        addMoneySection.style.display = 'block';
-                        showAddMoneyBtn.innerHTML = '<i class="fas fa-times"></i> Cancel';
-                        if (addMoneyAmountInput) addMoneyAmountInput.focus();
-                    }
+                    const isVisible = addMoneySection.style.display === 'block';
+                    addMoneySection.style.display = isVisible ? 'none' : 'block';
                 });
             }
 
+            // Confirm Add Money
+            const confirmAddMoneyBtn = document.getElementById('confirm-add-money-btn');
             if (confirmAddMoneyBtn) {
-                confirmAddMoneyBtn.addEventListener('click', async () => {
-                    const amount = addMoneyAmountInput ? addMoneyAmountInput.value : 0;
+                confirmAddMoneyBtn.addEventListener('click', () => {
+                    const amountInput = document.getElementById('add-money-amount');
+                    const amount = parseFloat(amountInput.value);
 
-                    if (!window.currentUserId || !window.db) {
-                        showAlert('Not Logged In', 'You must be logged in to add money.', 'error');
+                    if (isNaN(amount) || amount <= 0) {
+                        showAlert('Invalid Amount', 'Please enter a valid positive amount.', 'warning');
                         return;
                     }
 
-                    if (amount > 0) {
-                        const originalText = confirmAddMoneyBtn.textContent;
-                        confirmAddMoneyBtn.textContent = `Processing ₹${amount}...`;
-                        confirmAddMoneyBtn.disabled = true;
+                    // This is a simulation
+                    // In a real app, you'd integrate a payment gateway
+                    showAlert('Payment Gateway', `Simulating payment for ₹${amount.toFixed(2)}...<br/>(This is a demo, no real payment is processed.)`, 'info');
 
+                    // Simulate success and update balance
+                    setTimeout(async () => {
                         try {
-                            const newBalance = (parseFloat(window.currentUserData.walletBalance) || 0) + parseFloat(amount);
-                            // --- FIX: Use window.fs.doc and window.fs.updateDoc ---
+                            if (!window.currentUserId || !window.db || !window.fs) {
+                                throw new Error('User not logged in or Firebase not ready.');
+                            }
+
+                            const newBalance = (window.currentUserData.walletBalance || 0) + amount;
                             const userDocRef = window.fs.doc(window.db, 'artifacts', window.appId, 'users', window.currentUserId);
                             await window.fs.updateDoc(userDocRef, {
                                 walletBalance: newBalance
                             });
 
-                            // Manually update global state so UI refreshes
+                            // Update local data
                             window.currentUserData.walletBalance = newBalance;
-                            populateWallet(); // Re-render wallet UI
-                            
-                            showAlert('Success', `₹${amount} added to your wallet.`, 'success');
+                            // Update UI
+                            window.populateWallet();
 
+                            showAlert('Success', `₹${amount.toFixed(2)} added to your wallet!`, 'success');
                         } catch (error) {
                             console.error("Error adding money:", error);
-                            showAlert('Error', 'Could not add money. Please try again.', 'error');
-                        } finally {
-                            // Reset
-                            confirmAddMoneyBtn.textContent = originalText;
-                            confirmAddMoneyBtn.disabled = false;
-                            if (addMoneyAmountInput) addMoneyAmountInput.value = '';
-                            if (addMoneySection) addMoneySection.style.display = 'none';
-                            if (showAddMoneyBtn) showAddMoneyBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Add Money';
+                            showAlert('Error', `Could not update wallet: ${error.message}`, 'error');
                         }
-
-                    } else {
-                        showAlert('Invalid Amount', 'Please enter a valid amount.', 'warning');
-                        if (addMoneyAmountInput) addMoneyAmountInput.focus();
-                    }
+                    }, 2000);
                 });
             }
             // --- END Wallet Modal Logic ---
 
-            // --- NEW: Rides Modal Logic ---
-            const populateRides = async () => {
-                const rideListEl = document.querySelector('.ride-history-list');
-                if (!rideListEl) return;
+            // --- NEW: Populate My Rides Modal ---
+            window.populateRides = async () => {
+                const ridesListEl = document.querySelector('#rides-modal .ride-history-list');
+                if (!ridesListEl) return;
 
-                if (!window.currentUserId) {
-                    rideListEl.innerHTML = '<li><p>Please log in to see your ride history.</p></li>';
+                if (!window.currentUserId || !window.db || !window.fs) {
+                    ridesListEl.innerHTML = '<li><p>Please log in to see your ride history.</p></li>';
                     return;
                 }
 
-                rideListEl.innerHTML = '<li><p>Loading rides...</p></li>';
                 try {
-                    // --- FIX: Use window.fs.collection, .query, and .getDocs ---
                     const ridesColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'users', window.currentUserId, 'rides');
-                    const querySnapshot = await window.fs.getDocs(window.fs.query(ridesColRef)); // Don't order, sort in JS
+                    const querySnapshot = await window.fs.getDocs(ridesColRef);
 
                     if (querySnapshot.empty) {
-                        rideListEl.innerHTML = '<li><p>You have no ride history.</p></li>';
+                        ridesListEl.innerHTML = '<li><p>You have not taken any rides yet.</p></li>';
                         return;
                     }
 
-                    let rides = [];
-                    querySnapshot.forEach(doc => rides.push({ id: doc.id, ...doc.data() }));
-                    
-                    // Sort by date in JS (newest first)
-                    rides.sort((a, b) => new Date(b.date) - new Date(a.date));
+                    ridesListEl.innerHTML = ''; // Clear loading
+                    querySnapshot.forEach(doc => {
+                        const ride = doc.data();
+                        const rideDate = new Date(ride.date).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                        });
+                        const iconClass = ride.type === 'motorcycle' ? 'fa-motorcycle' : 'fa-car';
 
-                    rideListEl.innerHTML = ''; // Clear loading
-                    rides.forEach(ride => {
-                        const li = document.createElement('li');
-                        li.className = 'ride-item';
-                        li.innerHTML = `
-                            <div class="icon"><i class="fas ${ride.type === 'motorcycle' ? 'fa-motorcycle' : 'fa-car-side'}"></i></div>
-                            <div class="ride-details">
-                                <p>${ride.location || 'Unknown Ride'}</p>
-                                <span>${new Date(ride.date).toLocaleString()}</span>
-                                <span>Driver: ${ride.driver || 'N/A'}</span>
+                        const rideEl = document.createElement('li');
+                        rideEl.innerHTML = `
+                            <div class="ride-item">
+                                <div class="icon"><i class="fas ${iconClass}"></i></div>
+                                <div class="ride-details">
+                                    <p>${ride.location}</p>
+                                    <span>${rideDate} - ${ride.driver}</span>
+                                </div>
+                                <div class="ride-price">₹${ride.price}</div>
                             </div>
-                            <div class="ride-price">₹${ride.price || 0}</div>
                         `;
-                        rideListEl.appendChild(li);
+                        ridesListEl.appendChild(rideEl);
+                    });
+                } catch (error) {
+                    console.error("Error fetching rides:", error);
+                    ridesListEl.innerHTML = `<li><p>Error loading rides: ${error.message}</p></li>`;
+                }
+            };
+            // --- END My Rides Modal Logic ---
+
+            // --- NEW: Populate My Rewards Modal ---
+            window.populateRewards = async () => {
+                const rewardsListEl = document.querySelector('#rewards-modal .rewards-list');
+                if (!rewardsListEl) return;
+
+                if (!window.currentUserId || !window.db || !window.fs) {
+                    rewardsListEl.innerHTML = '<li><p>Please log in to see your rewards.</p></li>';
+                    return;
+                }
+
+                try {
+                    const rewardsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'users', window.currentUserId, 'rewards');
+                    const querySnapshot = await window.fs.getDocs(rewardsColRef);
+
+                    if (querySnapshot.empty) {
+                        rewardsListEl.innerHTML = '<li><p>You have no rewards at this time.</p></li>';
+                        return;
+                    }
+
+                    rewardsListEl.innerHTML = ''; // Clear loading
+                    querySnapshot.forEach(doc => {
+                        const reward = doc.data();
+                        const claimed = reward.claimed || false;
+
+                        const rewardEl = document.createElement('li');
+                        rewardEl.innerHTML = `
+                            <div class="reward-item">
+                                <div class="icon"><i class="fas ${reward.icon || 'fa-gift'}"></i></div>
+                                <div class="details">
+                                    <h4>${reward.title}</h4>
+                                    <p>${reward.description}</p>
+                                </div>
+                                <button class="claim-btn" data-reward-id="${doc.id}" ${claimed ? 'disabled' : ''}>
+                                    ${claimed ? 'Claimed' : 'Claim'}
+                                </button>
+                            </div>
+                        `;
+                        rewardsListEl.appendChild(rewardEl);
+                    });
+
+                    // Add event listeners to new buttons
+                    rewardsListEl.querySelectorAll('.claim-btn:not([disabled])').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            const rewardId = e.target.dataset.rewardId;
+                            // Simulate claiming
+                            e.target.disabled = true;
+                            e.target.textContent = 'Claimed';
+                            showAlert('Reward Claimed!', 'Your reward has been applied to your account.', 'success');
+
+                            // In a real app, you'd also update this in Firestore
+                            // e.g., updateDoc(doc(rewardsColRef, rewardId), { claimed: true });
+                        });
                     });
 
                 } catch (error) {
-                    console.error("Error fetching rides:", error);
-                    rideListEl.innerHTML = '<li><p>Could not load ride history.</p></li>';
+                    console.error("Error fetching rewards:", error);
+                    rewardsListEl.innerHTML = `<li><p>Error loading rewards: ${error.message}</p></li>`;
                 }
             };
-            window.populateRides = populateRides; // Attach to window
-            // --- END Rides Modal Logic ---
+            // --- END My Rewards Modal Logic ---
 
 
-            // --- NEW: Safety Modal Button Logic ---
+            // --- NEW: Help Modal (FAQ) Accordion Logic ---
+            const faqItems = document.querySelectorAll('#help-modal .faq-item');
+            if (faqItems.length > 0) {
+                faqItems.forEach(item => {
+                    const title = item.querySelector('.faq-title');
+                    const details = item.querySelector('.faq-details');
+
+                    if (title && details) {
+                        title.addEventListener('click', () => {
+                            const isOpen = item.classList.contains('active');
+
+                            // Close all others
+                            faqItems.forEach(otherItem => {
+                                otherItem.classList.remove('active');
+                                const otherDetails = otherItem.querySelector('.faq-details');
+                                if (otherDetails) {
+                                    otherDetails.classList.remove('open');
+                                    otherDetails.style.maxHeight = null;
+                                }
+                            });
+
+                            // Open the clicked one
+                            if (!isOpen) {
+                                item.classList.add('active');
+                                details.classList.add('open');
+                                // Set max-height to its scroll height
+                                details.style.maxHeight = details.scrollHeight + 'px';
+                            }
+                        });
+
+                        // Set initial max-height after a delay to allow for rendering
+                        if (details.classList.contains('open')) {
+                            setTimeout(() => {
+                                details.style.maxHeight = details.scrollHeight + 'px';
+                            }, 100);
+                        }
+                    }
+                });
+            }
+            // --- END Help Modal Logic ---
+
+            // --- NEW: Safety Modal Logic ---
             const shareRideBtn = document.getElementById('share-ride-btn');
             const sosBtn = document.getElementById('sos-btn');
 
             if (shareRideBtn) {
                 shareRideBtn.addEventListener('click', () => {
-                    showAlert('Share My Ride (Demo)', 'Your live location will be shared with your trusted contacts.', 'info');
+                    showAlert('Share Ride', 'Ride sharing activated. (This is a demo)', 'info');
                 });
             }
 
             if (sosBtn) {
-                sosBtn.addEventListener('click', async () => {
-                    showAlert('Emergency SOS', 'Connecting to emergency services and sharing your location...', 'error');
-                
-                    if (window.currentUserId && window.db) {
-                        try {
-                            // Log this event to a new collection
-                            // --- FIX: Use window.fs.addDoc and window.fs.collection ---
-                            await window.fs.addDoc(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'sosEvents'), {
-                                userId: window.currentUserId,
-                                name: window.currentUserData.name || 'Unknown',
-                                role: window.currentUserData.role || 'unknown',
-                                timestamp: new Date().toISOString()
-                            });
-                        } catch (error) {
-                            console.error("Failed to log SOS event:", error);
-                        }
-                    }
+                sosBtn.addEventListener('click', () => {
+                    showAlert('Emergency SOS!', 'SOS signal sent to emergency contacts and services. (This is a demo)', 'error');
                 });
             }
             // --- END Safety Modal Logic ---
 
+            // --- NEW: Refer Modal Logic ---
+            const copyBtn = document.getElementById('referral-copy-btn');
+            const copyInput = document.getElementById('referral-code');
 
-            // --- NEW: Refer & Rewards Logic ---
-            const referralCopyBtn = document.getElementById('referral-copy-btn');
-            const referralCodeInput = document.getElementById('referral-code');
-            const shareWhatsapp = document.getElementById('share-whatsapp');
-            const shareTwitter = document.getElementById('share-twitter');
-            const shareFacebook = document.getElementById('share-facebook');
-            const shareSms = document.getElementById('share-sms');
-
-            const copyReferralCode = () => {
-                if (!referralCodeInput) return;
-                try {
-                    referralCodeInput.select();
-                    document.execCommand('copy');
-                    const originalIcon = referralCopyBtn.innerHTML;
-                    referralCopyBtn.innerHTML = '<i class="fas fa-check"></i>';
-                    setTimeout(() => {
-                        referralCopyBtn.innerHTML = originalIcon;
-                    }, 2000);
-                } catch (err) {
-                    console.error('Failed to copy code: ', err);
-                    showAlert('Copy Failed', 'Failed to copy. Please copy it manually.', 'error');
-                }
-            };
-
-            if (referralCopyBtn) {
-                referralCopyBtn.addEventListener('click', copyReferralCode);
+            if (copyBtn && copyInput) {
+                copyBtn.addEventListener('click', () => {
+                    try {
+                        // Use document.execCommand for iFrame compatibility
+                        copyInput.select();
+                        document.execCommand('copy');
+                        showAlert('Copied!', 'Referral code copied to clipboard.', 'success');
+                    } catch (err) {
+                        console.error('Failed to copy text: ', err);
+                        showAlert('Failed', 'Could not copy code. Please copy it manually.', 'error');
+                    }
+                });
             }
 
-            const updateShareLinks = () => {
-                const code = referralCodeInput ? referralCodeInput.value : '';
-                const text = encodeURIComponent(`Hey! Join me on SafeReturn, the best road safety app. Use my referral code: ${code}`);
-                const url = encodeURIComponent("https.safereturn.com"); // Placeholder URL
+            // Share buttons (demo)
+            document.getElementById('share-whatsapp')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                showAlert('Share', 'Sharing to WhatsApp... (demo)', 'info');
+            });
+            document.getElementById('share-twitter')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                showAlert('Share', 'Sharing to Twitter... (demo)', 'info');
+            });
+            document.getElementById('share-facebook')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                showAlert('Share', 'Sharing to Facebook... (demo)', 'info');
+            });
+            document.getElementById('share-sms')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                showAlert('Share', 'Opening SMS... (demo)', 'info');
+            });
+            // --- END Refer Modal Logic ---
 
-                if (shareWhatsapp) shareWhatsapp.href = `https://wa.me/?text=${text}`;
-                if (shareTwitter) shareTwitter.href = `https://twitter.com/intent/tweet?text=${text}&url=${url}`;
-                if (shareFacebook) shareFacebook.href = `https://www.facebook.com/sharer/sharer.php?u=${url}&quote=${text}`;
-                if (shareSms) shareSms.href = `sms:?&body=${text}`;
+
+            // --- Accordion Logic for Education & Tips ---
+            const accordions = document.querySelectorAll('.education, .tips');
+
+            accordions.forEach(accordion => {
+                const items = accordion.querySelectorAll('.edu-item, .tip');
+                items.forEach(item => {
+                    const details = item.nextElementSibling; // Get the .edu-details or .tip-details
+
+                    if (details) {
+                        const toggleItem = () => {
+                            const isOpen = item.classList.contains('active');
+
+                            // Close all items in this section
+                            items.forEach(i => {
+                                i.classList.remove('active');
+                                const d = i.nextElementSibling;
+                                if (d) {
+                                    d.classList.remove('open');
+                                    d.style.maxHeight = null;
+                                }
+                            });
+
+                            // Open the clicked item if it wasn't already open
+                            if (!isOpen) {
+                                item.classList.add('active');
+                                details.classList.add('open');
+                                // Set max-height to its scroll height
+                                details.style.maxHeight = details.scrollHeight + 'px';
+                            }
+                        };
+
+                        item.addEventListener('click', toggleItem);
+                        // Add keyboard accessibility
+                        item.addEventListener('keydown', (e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                toggleItem();
+                            }
+                        });
+
+                        // Set initial max-height for any pre-opened items (if any)
+                        if (details.classList.contains('open')) {
+                            setTimeout(() => {
+                                details.style.maxHeight = details.scrollHeight + 'px';
+                            }, 100);
+                        }
+                    }
+                });
+            });
+
+
+            // --- Certificate / Pledge Logic ---
+            const generatePledgeBtn = document.getElementById('generate-pledge-btn');
+            const pledgeNameInput = document.getElementById('pledge-name');
+            const pledgeOutput = document.getElementById('pledge-output');
+
+            const heroModal = document.getElementById('hero-modal');
+            const heroCloseBtn = document.getElementById('hero-close-btn');
+
+            const certModal = document.getElementById('certificate-modal');
+            const certCloseBtn = document.getElementById('cert-close-btn');
+            const certNameEl = document.getElementById('cert-name');
+            const certDateEl = document.getElementById('current-date');
+            const certPrintBtn = document.getElementById('cert-print-btn');
+            const certPdfBtn = document.getElementById('cert-pdf-btn');
+            const certWhatsappBtn = document.getElementById('cert-whatsapp');
+            const confettiCanvas = document.getElementById('confetti-canvas');
+            let myConfetti = confetti.create(confettiCanvas, {
+                resize: true,
+                useWorker: true
+            });
+
+            const showHeroModal = () => {
+                if (heroModal) heroModal.style.display = 'flex';
             };
 
-            // Update links when the modal is opened (the code might populate after load)
-            const referModalTrigger = document.querySelector('a[data-modal-target="refer-modal"]');
-            if (referModalTrigger) {
-                referModalTrigger.addEventListener('click', updateShareLinks);
-            }
+            const closeHeroModal = () => {
+                if (heroModal) heroModal.style.display = 'none';
+                // Show the certificate modal after closing the hero modal
+                if (certModal) certModal.style.display = 'flex';
+                // Launch confetti!
+                myConfetti({
+                    particleCount: 150,
+                    spread: 180,
+                    origin: {
+                        y: 0.6
+                    }
+                });
+            };
 
-            // --- NEW: Rewards Population & Claim Logic ---
-            const populateRewards = async () => {
-                const rewardsListEl = document.querySelector('.rewards-list');
-                if (!rewardsListEl) return;
+            if (heroCloseBtn) heroCloseBtn.addEventListener('click', closeHeroModal);
 
-                if (!window.currentUserId) {
-                    rewardsListEl.innerHTML = '<li><p>Please log in to see your rewards.</p></li>';
-                    return;
-                }
+            const showCertificate = (name) => {
+                if (certNameEl) certNameEl.textContent = name;
+                if (certDateEl) certDateEl.textContent = new Date().toLocaleDateString('en-IN');
+                // First, show the "Hero" modal
+                showHeroModal();
+            };
 
-                rewardsListEl.innerHTML = '<li><p>Loading rewards...</p></li>';
-                try {
-                    // --- FIX: Use window.fs.collection, .query, and .getDocs ---
-                    const rewardsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'users', window.currentUserId, 'rewards');
-                    const querySnapshot = await window.fs.getDocs(window.fs.query(rewardsColRef)); // No ordering
+            const closeCertificate = () => {
+                if (certModal) certModal.style.display = 'none';
+            };
 
-                    if (querySnapshot.empty) {
-                        rewardsListEl.innerHTML = '<li><p>You have no rewards yet.</p></li>';
+            if (certCloseBtn) certCloseBtn.addEventListener('click', closeCertificate);
+
+            if (generatePledgeBtn) {
+                generatePledgeBtn.addEventListener('click', () => {
+                    const name = pledgeNameInput.value.trim();
+                    if (name === '') {
+                        if (pledgeOutput) {
+                            pledgeOutput.innerHTML = '<p style="color: red; font-weight: bold;">Please enter your name to take the pledge.</p>';
+                        }
                         return;
                     }
 
-                    let rewards = [];
-                    querySnapshot.forEach(doc => rewards.push({ id: doc.id, ...doc.data() }));
-                    
-                    rewardsListEl.innerHTML = ''; // Clear loading
-                    rewards.forEach(reward => {
-                        const li = document.createElement('li');
-                        li.className = 'reward-item';
-                        li.innerHTML = `
-                            <div class="icon"><i class="fas ${reward.icon || 'fa-gift'}"></i></div>
-                            <div class="details">
-                                <h4>${reward.title}</h4>
-                                <p>${reward.description}</p>
-                            </div>
-                            <button class="claim-btn" data-id="${reward.id}" ${reward.claimed ? 'disabled' : ''}>
-                                ${reward.claimed ? 'Claimed' : 'Claim'}
-                            </button>
+                    if (pledgeOutput) {
+                        pledgeOutput.innerHTML = `
+                            <p>Thank you, <strong>${name}</strong>!</p>
+                            <p><em>"I, <strong>${name}</strong>, commit to never drive distracted, to always follow traffic laws, and to prioritize the safety of myself and others."</em></p>
                         `;
-                        rewardsListEl.appendChild(li);
-                    });
-                    
-                    // Add event listeners to the new buttons
-                    attachClaimButtonListeners();
+                    }
+                    showCertificate(name);
+                });
+            }
 
-                } catch (error) {
-                    console.error("Error fetching rewards:", error);
-                    rewardsListEl.innerHTML = '<li><p>Could not load rewards.</p></li>';
-                }
-            };
-            window.populateRewards = populateRewards; // Attach to window
+            // Certificate Button Handlers
+            if (certPrintBtn) {
+                certPrintBtn.addEventListener('click', () => {
+                    window.print();
+                });
+            }
 
-            const attachClaimButtonListeners = () => {
-                document.querySelectorAll('.claim-btn').forEach(btn => {
-                    // Remove old listener to prevent duplicates
-                    const newBtn = btn.cloneNode(true);
-                    btn.parentNode.replaceChild(newBtn, btn);
-                    
-                    newBtn.addEventListener('click', async () => {
-                        if (newBtn.disabled) return;
-                        const rewardId = newBtn.dataset.id;
-                        if (!window.currentUserId || !rewardId || !window.db) return;
+            if (certPdfBtn) {
+                certPdfBtn.addEventListener('click', () => {
+                    const {
+                        jsPDF
+                    } = window.jspdf;
+                    const certContainer = document.querySelector('.certificate-container');
+                    const certName = document.getElementById('cert-name').textContent || 'pledge';
 
-                        newBtn.disabled = true;
-                        newBtn.textContent = 'Claiming...';
+                    html2canvas(certContainer, {
+                        scale: 2,
+                        useCORS: true
+                    }).then(canvas => {
+                        const imgData = canvas.toDataURL('image/png');
+                        // Calculate dimensions for PDF
+                        const pdfWidth = 210; // A4 width in mm
+                        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+                        const pdf = new jsPDF({
+                            orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+                            unit: 'mm',
+                            format: 'a4'
+                        });
 
-                        try {
-                            // --- FIX: Use window.fs.doc and window.fs.updateDoc ---
-                            const rewardDocRef = window.fs.doc(window.db, 'artifacts', window.appId, 'users', window.currentUserId, 'rewards', rewardId);
-                            await window.fs.updateDoc(rewardDocRef, {
-                                claimed: true
-                            });
+                        // Center the image on the A4 page
+                        const x = (pdf.internal.pageSize.getWidth() - pdfWidth) / 2;
+                        const y = (pdf.internal.pageSize.getHeight() - pdfHeight) / 2;
 
-                            newBtn.textContent = 'Claimed!';
-                            newBtn.style.background = '#ccc';
-                            newBtn.style.cursor = 'not-allowed';
-                            showAlert('Success', 'Reward has been claimed!', 'success');
-
-                        } catch (error) {
-                            console.error("Error claiming reward:", error);
-                            showAlert('Error', 'Could not claim reward. Please try again.', 'error');
-                            newBtn.disabled = false;
-                            newBtn.textContent = 'Claim';
-                        }
+                        pdf.addImage(imgData, 'PNG', x, y, pdfWidth, pdfHeight);
+                        pdf.save(`SafeReturn_Pledge_${certName.replace(/ /g, '_')}.pdf`);
+                    }).catch(err => {
+                        console.error("Error generating PDF:", err);
+                        alert("Could not generate PDF. Please try printing.");
                     });
                 });
-            };
-            // --- END Refer & Rewards Logic ---
+            }
 
+            if (certWhatsappBtn) {
+                certWhatsappBtn.addEventListener('click', (e) => {
+                    const name = certNameEl.textContent;
+                    const text = encodeURIComponent(`I just took the SafeReturn Road Safety Pledge! Join me in making our roads safer. #SafeReturn`);
+                    certWhatsappBtn.href = `https://api.whatsapp.com/send?text=${text}`;
+                });
+            }
 
-            // --- Registration Modal Logic (MOVED to top script) ---
+            // --- Map Preview Logic ---
+            const loadMapPreview = (containerId, destinationInputId) => {
+                const mapContainer = document.getElementById(containerId);
+                const destinationEl = document.getElementById(destinationInputId);
+                if (!mapContainer || !destinationEl) return;
 
-
-            // --- NEW Map Preview Logic ---
-            const previewDriverMapBtn = document.getElementById('previewDriverMapBtn');
-            const driverMapContainer = document.getElementById('driver-map-container');
-            const driverDestinationInput = document.getElementById('driverDestination');
-
-            const previewEmergencyMapBtn = document.getElementById('previewEmergencyMapBtn');
-            const emergencyMapContainer = document.getElementById('emergency-map-container');
-            const emergencyDestinationInput = document.getElementById('emergencyDestination');
-
-            const displayMap = (container, location) => {
-                if (!container) return; // Guard against null
-
-                if (!location) {
-                    container.innerHTML = `<div class="map-api-notice"><i class="fas fa-exclamation-triangle"></i>Please enter a destination first.</div>`;
-                    container.style.display = 'block';
+                const destination = destinationEl.value;
+                if (!destination) {
+                    mapContainer.innerHTML = '<div class="map-api-notice"><i class="fas fa-exclamation-triangle"></i>Please enter a destination first.</div>';
+                    mapContainer.style.display = 'block';
                     return;
                 }
 
                 if (GOOGLE_MAPS_API_KEY === "YOUR_API_KEY_GOES_HERE" || !GOOGLE_MAPS_API_KEY) {
-                    container.innerHTML = `<div class="map-api-notice"><i class="fas fa-key"></i><b>Action Required</b><br>Please add your Google Maps API Key in the script to enable map previews.</div>`;
-                    container.style.display = 'block';
+                    mapContainer.innerHTML = `
+                        <div class="map-api-notice">
+                            <i class="fas fa-key"></i>
+                            <strong>Map Preview Unavailable</strong>
+                            <p>A Google Maps API key is required to show the map preview.</p>
+                        </div>`;
+                    mapContainer.style.display = 'block';
                     return;
                 }
 
-                const embedUrl = `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(location + ', India')}`;
-
-                container.innerHTML = `
-                    <iframe
-                        loading="lazy"
-                        allowfullscreen
-                        referrerpolicy="no-referrer-when-downgrade"
-                        src="${embedUrl}">
-                    </iframe>
-                `;
-                container.style.display = 'block';
+                const mapUrl = `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_MAPS_API_KEY}&q=${encodeURIComponent(destination)}`;
+                mapContainer.innerHTML = `<iframe
+                    width="100%"
+                    height="100%"
+                    frameborder="0" style="border:0"
+                    src="${mapUrl}" allowfullscreen>
+                </iframe>`;
+                mapContainer.style.display = 'block';
             };
+
+            const previewDriverMapBtn = document.getElementById('previewDriverMapBtn');
+            const previewEmergencyMapBtn = document.getElementById('previewEmergencyMapBtn');
 
             if (previewDriverMapBtn) {
                 previewDriverMapBtn.addEventListener('click', () => {
-                    if (!driverDestinationInput) return;
-                    const location = driverDestinationInput.value.trim();
-                    displayMap(driverMapContainer, location);
+                    loadMapPreview('driver-map-container', 'driverDestination');
                 });
             }
 
             if (previewEmergencyMapBtn) {
                 previewEmergencyMapBtn.addEventListener('click', () => {
-                    if (!emergencyDestinationInput) return;
-                    const location = emergencyDestinationInput.value.trim();
-                    displayMap(emergencyMapContainer, location);
+                    loadMapPreview('emergency-map-container', 'emergencyDestination');
                 });
             }
 
+            // --- NEW: Role-Specific Action Button Listeners ---
 
+            // --- 1. Traveler: Book a Ride ---
+            const bookRideBtn = document.getElementById('book-my-ride-btn');
+            const bookRideModal = document.getElementById('book-ride-modal');
+            const bookRideForm = document.getElementById('book-ride-form');
+            const bookRideError = document.getElementById('book-ride-error');
 
-            // --- Pledge & Certificate Logic ---
-            const pledgeBtn = document.getElementById('generate-pledge-btn');
-            const pledgeNameInput = document.getElementById('pledge-name');
-            const pledgeOutputP = document.querySelector('#pledge-output p');
-
-            // FIX: Check if pledgeOutputP exists before accessing innerHTML
-            const originalPledgeHTML = pledgeOutputP ? pledgeOutputP.innerHTML : 'I pledge to be <strong><em>YOU</em>.</strong> A responsible road user.';
-
-            const certModal = document.getElementById('certificate-modal');
-            const certCloseBtn = document.getElementById('cert-close-btn');
-            const certName = document.getElementById('cert-name');
-            const certDate = document.getElementById('current-date');
-            const downloadPdfBtn = document.getElementById('cert-pdf-btn');
-            const printBtn = document.getElementById('cert-print-btn');
-            const whatsappBtn = document.getElementById('cert-whatsapp');
-            const certificateContainer = certModal ? certModal.querySelector('.certificate-container') : null;
-            const confettiCanvas = document.getElementById('confetti-canvas');
-
-            const heroModal = document.getElementById('hero-modal');
-            const heroCloseBtn = document.getElementById('hero-close-btn');
-
-            let myConfetti;
-            if (confettiCanvas) {
-                myConfetti = confetti.create(confettiCanvas, {
-                    resize: true,
-                    useWorker: true
+            if (bookRideBtn && bookRideModal) {
+                bookRideBtn.addEventListener('click', () => {
+                    bookRideModal.classList.add('active');
+                    // Pre-fill location if available
+                    const pickupInput = document.getElementById('pickup-location');
+                    if (pickupInput && window.currentUserData && window.currentUserData.defaultLocation) {
+                        pickupInput.value = window.currentUserData.defaultLocation;
+                    }
                 });
             }
 
-
-            if (pledgeBtn) {
-                pledgeBtn.addEventListener('click', () => {
-                    if (!pledgeNameInput) return;
-
-                    const name = pledgeNameInput.value.trim();
-                    if (name === "") {
-                        pledgeNameInput.focus();
-                        pledgeNameInput.style.borderColor = 'var(--primary-color)';
+            if (bookRideForm) {
+                bookRideForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    if (!window.db || !window.fs || !window.currentUserId) {
+                        if (bookRideError) bookRideError.textContent = 'Error: Not logged in.';
                         return;
                     }
-                    pledgeNameInput.style.borderColor = '#ccc';
+
+                    const from = bookRideForm['pickup-location'].value;
+                    const to = bookRideForm['dropoff-location'].value;
+                    const vehicle = bookRideForm['ride-vehicle-type'].value;
+                    const submitBtn = bookRideForm.querySelector('.submit-btn');
+
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Finding...';
+                    if (bookRideError) bookRideError.style.display = 'none';
+
+                    try {
+                        const rideRequestData = {
+                            travelerId: window.currentUserId,
+                            travelerName: window.currentUserData.name || 'A Traveler',
+                            from: from,
+                            to: to,
+                            vehicle: vehicle,
+                            status: 'pending', // pending, accepted, completed
+                            createdAt: new Date().toISOString()
+                        };
+
+                        // Add to the PUBLIC 'ride-requests' collection
+                        const rideRequestsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests');
+                        await window.fs.addDoc(rideRequestsColRef, rideRequestData);
+                        
+                        showAlert('Request Sent!', `Your ride request from ${from} to ${to} has been sent to nearby drivers.`, 'success');
+                        
+                        if(bookRideModal) bookRideModal.classList.remove('active');
+                        bookRideForm.reset();
+
+                    } catch (error) {
+                        console.error("Error booking ride:", error);
+                        if (bookRideError) {
+                            bookRideError.textContent = `Error: ${error.message}`;
+                            bookRideError.style.display = 'block';
+                        }
+                    } finally {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Find My Ride';
+                    }
+                });
+            }
 
 
-                    const newPledgeHTML = originalPledgeHTML.replace(
-                        '<strong><em>YOU</em>.</strong>',
-                        `<strong style="color: var(--primary-color);"><em>${name}</em>.</strong>`
-                    );
+            // --- 2. Driver: View Ride Requests ---
+            const viewRideRequestsBtn = document.getElementById('view-ride-requests-btn');
+            const rideRequestsModal = document.getElementById('ride-requests-modal');
+            const rideRequestsList = document.getElementById('ride-requests-list');
 
-                    if (pledgeOutputP) pledgeOutputP.innerHTML = newPledgeHTML;
+            if (viewRideRequestsBtn && rideRequestsModal) {
+                viewRideRequestsBtn.addEventListener('click', () => {
+                    rideRequestsModal.classList.add('active');
+                    // Start listening for new ride requests
+                    listenForRideRequests();
+                });
+            }
 
-                    if (certName) certName.textContent = name;
-                    if (certDate) certDate.textContent = new Date().toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
+            const listenForRideRequests = () => {
+                if (window.rideRequestsListener) {
+                    console.log("Listener already active.");
+                    return; // Already listening
+                }
+                
+                if (!window.db || !window.fs) {
+                    if (rideRequestsList) rideRequestsList.innerHTML = '<li><p>Error: Firebase not initialized.</p></li>';
+                    return;
+                }
+                
+                if (rideRequestsList) rideRequestsList.innerHTML = '<li><p>Listening for new requests...</p></li>';
+
+                const rideRequestsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests');
+                
+                // Create a query for only 'pending' requests
+                const q = window.fs.query(rideRequestsColRef, window.fs.where("status", "==", "pending"));
+
+                window.rideRequestsListener = window.fs.onSnapshot(q, (querySnapshot) => {
+                    if (querySnapshot.empty) {
+                        if (rideRequestsList) rideRequestsList.innerHTML = '<li><p>No pending ride requests.</p></li>';
+                        return;
+                    }
+
+                    if (rideRequestsList) rideRequestsList.innerHTML = ''; // Clear list
+                    querySnapshot.forEach((doc) => {
+                        const request = doc.data();
+                        const requestId = doc.id;
+                        const timeAgo = new Date(request.createdAt).toLocaleString('en-IN');
+                        
+                        const item = document.createElement('li');
+                        item.className = 'modal-list-item ride-request-item';
+                        item.innerHTML = `
+                            <div class="icon"><i class="fas fa-map-marker-alt"></i></div>
+                            <div class="details">
+                                <p>${request.travelerName}</p>
+                                <span><strong>From:</strong> ${request.from}</span>
+                                <span><strong>To:</strong> ${request.to}</span>
+                                <span><strong>Vehicle:</strong> ${request.vehicle}</span>
+                                <span class="timestamp">${timeAgo}</span>
+                            </div>
+                            <button class="accept-btn" data-id="${requestId}">Accept</button>
+                        `;
+                        rideRequestsList.appendChild(item);
+                    });
+                    
+                    // Add listeners to new accept buttons
+                    rideRequestsList.querySelectorAll('.accept-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            const requestId = e.target.dataset.id;
+                            e.target.disabled = true;
+                            e.target.textContent = 'Accepting...';
+
+                            try {
+                                const requestDocRef = window.fs.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests', requestId);
+                                
+                                // Update status to 'accepted' and assign to this driver
+                                await window.fs.updateDoc(requestDocRef, {
+                                    status: 'accepted',
+                                    driverId: window.currentUserId,
+                                    driverName: window.currentUserData.name || 'Driver'
+                                });
+                                
+                                showAlert('Ride Accepted!', 'You have accepted the ride. The traveler has been notified.', 'success');
+                                // The onSnapshot listener will automatically remove this from the list
+                            } catch (error) {
+                                console.error("Error accepting ride:", error);
+                                showAlert('Error', `Could not accept ride: ${error.message}`, 'error');
+                                e.target.disabled = false;
+                                e.target.textContent = 'Accept';
+                            }
+                        });
                     });
 
-                    const shareText = encodeURIComponent(
-                        `I just took the SafeReturn Road Safety Pledge! Join me in committing to safer roads. #SafeReturn #RoadSafetyHero`
-                    );
-                    if (whatsappBtn) whatsappBtn.href = `https://wa.me/?text=${shareText}`;
+                }, (error) => {
+                    console.error("Error listening for ride requests:", error);
+                    if (rideRequestsList) rideRequestsList.innerHTML = `<li><p>Error: ${error.message}</p></li>`;
+                    window.rideRequestsListener = null; // Reset listener
+                });
+            };
 
-                    if (certModal) certModal.style.display = 'flex';
 
-                    if (myConfetti) {
-                        myConfetti({
-                            particleCount: 150,
-                            spread: 90,
-                            origin: { y: 0.6 },
-                            zIndex: 10001
+            // --- 3. Emergency: View Active Alerts ---
+            const viewActiveAlertsBtn = document.getElementById('view-active-alerts-btn');
+            const activeAlertsModal = document.getElementById('active-alerts-modal');
+            const activeAlertsList = document.getElementById('active-alerts-list');
+
+            if (viewActiveAlertsBtn && activeAlertsModal) {
+                viewActiveAlertsBtn.addEventListener('click', () => {
+                    activeAlertsModal.classList.add('active');
+                    // Start listening for new alerts
+                    listenForActiveAlerts();
+                });
+            }
+            
+            const listenForActiveAlerts = () => {
+                if (window.activeAlertsListener) {
+                    console.log("Alert listener already active.");
+                    return; // Already listening
+                }
+                
+                if (!window.db || !window.fs) {
+                    if (activeAlertsList) activeAlertsList.innerHTML = '<li><p>Error: Firebase not initialized.</p></li>';
+                    return;
+                }
+                
+                if (activeAlertsList) activeAlertsList.innerHTML = '<li><p>Listening for new alerts...</p></li>';
+
+                const alertsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'alerts');
+                
+                // Create a query for 'active' alerts (this is a demo, in real life you'd filter)
+                const q = window.fs.query(alertsColRef);
+
+                window.activeAlertsListener = window.fs.onSnapshot(q, (querySnapshot) => {
+                    if (querySnapshot.empty) {
+                        if (activeAlertsList) activeAlertsList.innerHTML = '<li><p>No active alerts at this time.</p></li>';
+                        return;
+                    }
+
+                    if (activeAlertsList) activeAlertsList.innerHTML = ''; // Clear list
+                    querySnapshot.forEach((doc) => {
+                        const alert = doc.data();
+                        const timeAgo = new Date(alert.createdAt).toLocaleString('en-IN');
+                        
+                        const item = document.createElement('li');
+                        item.className = 'modal-list-item alert-item';
+                        item.innerHTML = `
+                            <div class="icon"><i class="fas fa-car-crash"></i></div>
+                            <div class="details">
+                                <p>${alert.type || 'Incident'}</p>
+                                <span><strong>Location:</strong> ${alert.location || 'Unknown'}</span>
+                                <span><strong>Details:</strong> ${alert.details || 'No details'}</span>
+                                <span class="timestamp">Reported by ${alert.reporter || 'Community'} at ${timeAgo}</span>
+                            </div>
+                        `;
+                        activeAlertsList.appendChild(item);
+                    });
+                    
+                }, (error) => {
+                    console.error("Error listening for alerts:", error);
+                    if (activeAlertsList) activeAlertsList.innerHTML = `<li><p>Error: ${error.message}</p></li>`;
+                    window.activeAlertsListener = null; // Reset listener
+                });
+                
+                // --- DEMO: Seed an alert if none exist ---
+                (async () => {
+                    const snap = await window.fs.getDocs(q);
+                    if(snap.empty) {
+                        console.log("Seeding demo alert...");
+                        await window.fs.addDoc(alertsColRef, {
+                            type: "Vehicle Accident",
+                            location: "NH-48, Near Cyber Hub",
+                            details: "Two-car collision, heavy traffic blockage.",
+                            reporter: "Driver",
+                            createdAt: new Date().toISOString()
                         });
                     }
+                })();
+                
+            };
+
+            // --- 4. Emergency: Get Priority Route ---
+            const getPriorityRouteBtn = document.getElementById('get-priority-route-btn');
+            const priorityRouteModal = document.getElementById('priority-route-modal');
+            const priorityRouteForm = document.getElementById('priority-route-form');
+            const priorityRouteError = document.getElementById('priority-route-error');
+
+            if (getPriorityRouteBtn && priorityRouteModal) {
+                getPriorityRouteBtn.addEventListener('click', () => {
+                    priorityRouteModal.classList.add('active');
                 });
             }
-
-            if (certCloseBtn) {
-                certCloseBtn.addEventListener('click', () => {
-                    if (certModal) certModal.style.display = 'none';
-                    if (heroModal) heroModal.style.display = 'flex';
-                });
-            }
-
-            if (heroCloseBtn) {
-                heroCloseBtn.addEventListener('click', () => {
-                    if (heroModal) heroModal.style.display = 'none';
-                });
-            }
-
-            if (downloadPdfBtn) {
-                downloadPdfBtn.addEventListener('click', () => {
-                    if (!certificateContainer) return;
-
-                    const buttons = certificateContainer.querySelector('.cert-button-group');
-                    const closeBtn = certificateContainer.querySelector('.cert-close-btn');
-
-                    if (buttons) buttons.style.display = 'none';
-                    if (closeBtn) closeBtn.style.display = 'none';
-
-                    html2canvas(certificateContainer, {
-                        scale: 2,
-                        useCORS: true
-                    }).then(canvas => {
-                        if (buttons) buttons.style.display = 'flex';
-                        if (closeBtn) closeBtn.style.display = 'block';
-
-                        const imgData = canvas.toDataURL('image/png');
-                        const { jsPDF } = window.jspdf;
-
-                        const pdfWidth = 210;
-                        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-                        const pdf = new jsPDF('p', 'mm', 'a4');
-
-                        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-                        pdf.save('SafeReturn_Pledge.pdf');
-                    }).catch(err => {
-                        console.error("Error generating PDF:", err);
-                        if (buttons) buttons.style.display = 'flex';
-                        if (closeBtn) closeBtn.style.display = 'block';
-                    });
-                });
-            }
-
-            if (printBtn) {
-                printBtn.addEventListener('click', () => {
-                    window.print();
-                });
-            }
-
-            if (certModal) {
-                certModal.addEventListener('click', (e) => {
-                    if (e.target === certModal) {
-                        certModal.style.display = 'none';
-                        if (heroModal) heroModal.style.display = 'flex';
+            
+            if (priorityRouteForm) {
+                priorityRouteForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    
+                    const from = priorityRouteForm['incident-location'].value;
+                    const to = priorityRouteForm['incident-destination'].value;
+                    
+                    if (!from || !to) {
+                        if (priorityRouteError) {
+                            priorityRouteError.textContent = 'Please fill in both locations.';
+                            priorityRouteError.style.display = 'block';
+                        }
+                        return;
                     }
+                    
+                    if (priorityRouteError) priorityRouteError.style.display = 'none';
+
+                    // SIMULATE AI ROUTE GENERATION
+                    const submitBtn = priorityRouteForm.querySelector('.submit-btn');
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Generating...';
+                    
+                    setTimeout(() => {
+                        showAlert(
+                            'Route Generated!', 
+                            `An AI-optimized priority route from <strong>${from}</strong> to <strong>${to}</strong> has been sent to your device.<br/>(This is a demo)`, 
+                            'success'
+                        );
+                        if (priorityRouteModal) priorityRouteModal.classList.remove('active');
+                        priorityRouteForm.reset();
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Generate Route';
+                    }, 1500);
                 });
             }
 
-            if (heroModal) {
-                heroModal.addEventListener('click', (e) => {
-                    if (e.target === heroModal) {
-                        heroModal.style.display = 'none';
-                    }
-                });
-            }
 
-        });
+        }); // --- End of DOMContentLoaded ---
     </script>
 
+      <!-- footer -->
+<footer
+    style="background-color: var(--dark-bg); color: var(--light-text); padding: 50px 0; font-family: 'Poppins', sans-serif;">
+    <div
+        style="max-width: 1200px; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; padding: 0 20px;">
 
-
-
-
-    <!-- footer -->
-    <footer id="main-footer">
-        <div
-            style="max-width: 1200px; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; padding: 0 20px;">
-
-            <div class="footer-section">
-                <h3
-                    style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.5em; display: flex; align-items: center;">
-                    <span style="margin-right: 10px;">🚦</span> Road Safety Club
-                </h3>
-                <p style="line-height: 1.6;">
-                    Our mission is to empower everyone with the knowledge to drive and walk safely. Join us in making
-                    roads safer
-                    for all!
-                </p>
-
-                <button onclick="window.scrollTo({top:0, behavior:'smooth'});" class="back-to-top-btn"
-                    style="margin-top: 25px; padding: 12px 25px; background-color: var(--accent-color); border: none; color: var(--dark-bg); font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                    ↑ Zoom Back Up!
-                </button>
-            </div>
-
-            <div class="footer-section">
-                <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">📞 Connect With Us</h3>
-                <ul style="list-style: none; padding: 0; line-height: 2;">
-                    <li><a href="mailto:info@roadsafetyclub.com"
-                            class="footer-link email-link">info@roadsafetyclub.com</a>
-                    </li>
-                </ul>
-
-                <h4 style="color: var(--light-text); margin-top: 15px; margin-bottom: 5px; font-weight: 600;">Team
-                    Contacts:</h4>
-                <ul style="list-style: none; padding: 0; line-height: 1.8;">
-                    <li><a href="tel:9996445592" class="footer-link contact-list-link"><strong>Vivek Yadav:</strong>
-                            9996445592</a>
-                    </li>
-                    <li><a href="tel:9251399133" class="footer-link contact-list-link"><strong>Shri ji
-                                Aggarwal:</strong>
-                            9457057473</a></li>
-                    <li><a href="tel:9389864319" class="footer-link contact-list-link"><strong>Shreya
-                                Chaudhary:</strong>
-                            9389864319</a></li>
-                    <li><a href="tel:7056123205" class="footer-link contact-list-link"><strong>Ekta Pannu:</strong>
-                            7056123205</a>
-                    </li>
-                    <li><a href="tel:9457057473" class="footer-link contact-list-link"><strong>Khush Raghav:</strong>
-                            9251399133</a>
-                    </li>
-                </ul>
-            </div>
-
-            <div class="footer-section">
-                <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">🔗 Quick Resources</h3>
-                <ul style="list-style: none; padding: 0; line-height: 2;">
-                    <!-- This is the updated link -->
-                    <li><a href="Road-safety-handbook.pdf" class="footer-link">Traffic Rules Handbook</a></li>
-                    <li><a href="/events" class="footer-link">Upcoming Safety Events</a></li>
-                    <li><a href="/blog" class="footer-link">Safety Blog</a></li>
-                    <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSf4sZdUmq6lhWxHyZ9yFuACp7wRLufzcB2VzmCBoVyg7qvn7w/viewform"
-                            class="footer-link">Join Our Volunteer Team</a></li>
-                </ul>
-
-                <div style="margin-top: 20px;">
-                    <a href="#" class="social-icon" aria-label="Follow us on World Wide Web">🌐</a>
-                    <a href="#" class="social-icon" aria-label="Follow us on Facebook">📘</a>
-                    <a href="#" class="social-icon" aria-label="Follow us on Twitter">🐦</a>
-                    <a href="#" classs="social-icon" aria-label="Follow us on LinkedIn">💼</a>
-                </div>
-            </div>
-
-        </div> <!-- This closes the max-width div -->
-
-        <div class="footer-bottom-bar"
-            style="text-align: center; padding: 25px 20px; border-top: 1px solid var(--border-color); margin-top: 40px; background-color: rgba(0,0,0,0.2);">
-            <p style="margin: 0; font-size: 0.9em; color: #ccc;">
-                &copy; 2024 Road Safety Club (Vivek Yadav & Team). All Rights Reserved.
+        <div class="footer-section">
+            <h3
+                style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.5em; display: flex; align-items: center;">
+                <span style="margin-right: 10px;">🚦</span> Road Safety Club
+            </h3>
+            <p style="line-height: 1.6;">
+                Our mission is to empower everyone with the knowledge to drive and walk safely. Join us in making
+                roads safer
+                for all!
             </p>
-            <p style="margin: 5px 0 0; font-size: 0.85em; color: #888;">
-                Disclaimer: This website is for educational and awareness purposes only. Always follow official traffic
-                laws.
-            </p>
+
+            <button onclick="window.scrollTo({top:0, behavior:'smooth'});" class="back-to-top-btn"
+                style="margin-top: 25px; padding: 12px 25px; background-color: var(--accent-color); border: none; color: var(--dark-bg); font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                ↑ Zoom Back Up!
+            </button>
         </div>
 
-        <!-- STYLING FOR THE FOOTER LINKS -->
-        <style>
-            .footer-section {
-                flex: 1;
-                min-width: 280px;
-            }
+        <div class="footer-section">
+            <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">📞 Connect With Us</h3>
+            <ul style="list-style: none; padding: 0; line-height: 2;">
+                <li><a href="mailto:info@roadsafetyclub.com" class="footer-link email-link">info@roadsafetyclub.com</a>
+                </li>
+            </ul>
 
-            .footer-link {
-                color: #ccc;
-                text-decoration: none;
-                transition: color 0.3s, text-decoration 0.3s;
-                display: inline-block;
-                position: relative;
-            }
+            <h4 style="color: var(--light-text); margin-top: 15px; margin-bottom: 5px; font-weight: 600;">Team
+                Contacts:</h4>
+            <ul style="list-style: none; padding: 0; line-height: 1.8;">
+                <li><a href="tel:9996445592" class="footer-link contact-list-link"><strong>Vivek Yadav:</strong>
+                        9996445592</a>
+                </li>
+                <li><a href="tel:9251399133" class="footer-link contact-list-link"><strong>Shri ji
+                            Aggarwal:</strong>
+                        9457057473</a></li>
+                <li><a href="tel:9389864319" class="footer-link contact-list-link"><strong>Shreya
+                            Chaudhary:</strong>
+                        9389864319</a></li>
+                <li><a href="tel:7056123205" class="footer-link contact-list-link"><strong>Ekta Pannu:</strong>
+                        7056123205</a>
+                </li>
+                <li><a href="tel:9457057473" class="footer-link contact-list-link"><strong>Khush Raghav:</strong>
+                        9251399133</a>
+                </li>
+            </ul>
+        </div>
 
-            .footer-link::after {
-                content: '';
-                display: block;
-                width: 0;
-                height: 1px;
-                background: var(--accent-color);
-                transition: width 0.3s ease; /* Completed this line */
-            }
+        <div class="footer-section">
+            <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">🔗 Quick Resources</h3>
+            <ul style="list-style: none; padding: 0; line-height: 2;">
+                <!-- This is the updated link -->
+                <li><a href="Road-safety-handbook.pdf" class="footer-link">Traffic Rules Handbook</a></li>
+                <li><a href="/events" class="footer-link">Upcoming Safety Events</a></li>
+                <li><a href="/blog" class="footer-link">Safety Blog</a></li>
+                <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSf4sZdUmq6lhWxHyZ9yFuACp7wRLufzcB2VzmCBoVyg7qvn7w/viewform"
+                        class="footer-link">Join Our Volunteer Team</a></li>
+            </ul>
 
-            /* Added the rest of the styles */
-            .footer-link:hover {
-                color: var(--accent-color);
-            }
+            <div style="margin-top: 20px;">
+                <a href="#" class="social-icon" aria-label="Follow us on World Wide Web">🌐</a>
+                <a href="#" class="social-icon" aria-label="Follow us on Facebook">📘</a>
+                <a href="#" class="social-icon" aria-label="Follow us on Twitter">🐦</a>
+                <a href="#" class="social-icon" aria-label="Follow us on Instagram">📸</a>
+            </div>
+        </div>
+    </div>
 
-            .footer-link:hover::after {
-                width: 100%;
-            }
+    <div style="text-align: center; padding-top: 25px; border-top: 1px solid var(--border-color); margin-top: 50px;">
+        <p>&copy; 2025 Road Safety Club. Drive Smart, Live Safe.</p>
+    </div>
 
-            .email-link {
-                font-weight: 600;
-                color: #fff;
-            }
+    <div id="cursor-wrapper" class="cursor-wrapper">
+        <div class="single-segment">
+            <div class="segment-color red"></div>
+            <div class="segment-color yellow"></div>
+            <div class="segment-color green"></div>
+        </div>
+    </div>
+    <style>
+        /* CSS Variables for easy color changes */
+        :root {
+            --dark-bg: #1a1a1a;
+            --light-text: #fff;
+            --accent-color: #ffcc00;
+            /* Yellow */
+            --accent-hover: #e6b800;
+            --border-color: #444;
+        }
 
-            .contact-list-link strong {
-                color: #fff;
-                font-weight: 600;
-            }
+        footer {
+            /* This ensures the font-family from the inline style is the starting point */
+            font-family: 'Poppins', Arial, sans-serif !important;
+        }
 
-            .social-icon {
-                color: #fff;
-                font-size: 1.5em;
-                margin-right: 15px;
-                text-decoration: none;
-                transition: color 0.3s, transform 0.3s;
-                display: inline-block;
-            }
+        .footer-section {
+            flex: 1;
+            min-width: 280px;
+            margin-bottom: 20px;
+        }
 
-            .social-icon:hover {
-                color: var(--accent-color);
-                transform: scale(1.1);
-            }
+        /* General Link Styling */
+        .footer-link {
+            color: var(--light-text);
+            text-decoration: none;
+            transition: color 0.3s, transform 0.3s;
+            display: inline-block;
+        }
 
-            .back-to-top-btn:hover {
-                background-color: var(--accent-hover);
-                box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
-                transform: translateY(-2px);
-            }
-        </style>
-    </footer> <!-- Added closing footer tag -->
+        .footer-link:hover {
+            color: var(--accent-color);
+            transform: translateX(5px);
+            /* Subtle shift */
+        }
 
-</body> <!-- Added closing body tag -->
+        /* Team Contact List specific styling - removes the phone icon for this block */
+        .contact-list-link {
+            padding-left: 20px;
+            /* Indent slightly for visual hierarchy */
+        }
 
-</html> <!-- Added closing html tag -->
+        /* Social Icon Animation */
+        .social-icon {
+            color: var(--light-text);
+            font-size: 24px;
+            margin-right: 15px;
+            /* Use margin-right for spacing */
+            display: inline-block;
+            transition: transform 0.3s, color 0.3s;
+            text-decoration: none;
+        }
 
+        .social-icon:hover {
+            color: var(--accent-color);
+            transform: translateY(-5px) scale(1.1);
+            /* Lift and enlarge */
+        }
 
+        /* Back to Top Button hover */
+        .back-to-top-btn:hover {
+            background-color: var(--accent-hover);
+            transform: translateY(-3px) scale(1.02);
+            /* Lift and slightly enlarge */
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Clear focus state for accessibility */
+        .footer-link:focus,
+        .social-icon:focus,
+        .back-to-top-btn:focus {
+            outline: 2px solid var(--accent-color);
+            outline-offset: 3px;
+        }
+
+        /* Specific Link Icons (A friendlier touch) - Applied only to General/Email links */
+        .phone-link::before {
+            content: '📞 ';
+            color: var(--accent-color);
+        }
+
+        .email-link::before {
+            content: '📧 ';
+            color: var(--accent-color);
+        }
+
+    </style>
+    
+</footer>
+</body>
+
+</html>
+
+</body>
+
+</html>
 
