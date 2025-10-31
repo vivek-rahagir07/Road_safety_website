@@ -33,8 +33,20 @@
             doc,
             setDoc,
             setLogLevel,
-            getDoc
+            getDoc,
+            addDoc,
+            collection,
+            getDocs,
+            query,
+            updateDoc
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // NEW: Import Firebase Storage
+        import {
+            getStorage,
+            ref,
+            uploadBytes,
+            getDownloadURL
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
         // For Firebase JS SDK v7.20.0 and later, measurementId is optional
         const firebaseConfig = {
@@ -54,9 +66,36 @@
         const app = initializeApp(finalFirebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const storage = getStorage(app); // NEW: Initialize Storage
         setLogLevel('debug');
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // --- NEW: Make critical instances available globally ---
+        window.db = db;
+        window.auth = auth;
+        window.storage = storage; // NEW: Add storage to global window
+        window.appId = appId;
+        window.currentUserId = null;
+        window.currentUserData = {};
+        
+        // --- FIX: Attach Firestore FUNCTIONS to window ---
+        window.fs = {
+            doc,
+            setDoc,
+            getDoc,
+            addDoc,
+            collection,
+            getDocs,
+            query,
+            updateDoc,
+            // NEW: Add storage functions to global fs object
+            storage_ref: ref,
+            uploadBytes,
+            getDownloadURL
+        };
+        // --- END FIX ---
+
 
         // --- NEW: Helper function to format email as name ---
         const formatEmailAsName = (email) => {
@@ -82,7 +121,7 @@
             // Get elements for showing auth state
             const navAuthLinks = document.getElementById('nav-auth-links'); // Container for Login/Sign Up
             const navUserInfo = document.getElementById('nav-user-info');
-            const navUserInitial = document.getElementById('nav-user-initial'); // <-- CHANGED
+            const navUserPhoto = document.getElementById('nav-user-photo'); // <-- CHANGED from navUserInitial
             const navLogoutBtn = document.getElementById('nav-logout-btn');
 
             // --- FIX 2: Moved these definitions up ---
@@ -120,7 +159,10 @@
                     const userId = user.uid;
                     const userDocRef = doc(db, 'artifacts', appId, 'users', userId);
 
+                    window.currentUserId = userId; // <-- NEW: Set global userId
+
                     let userData = {}; // --- FIX 3: Initialize userData ---
+                    let photoUrl; // <-- NEW: Declare photoUrl here
 
                     try {
                         const userDoc = await getDoc(userDocRef);
@@ -134,6 +176,50 @@
                             else if (userRole === 'emergency') userName = userData.operatorName || formatEmailAsName(user.email);
                             else userName = user.isAnonymous ? 'Guest' : formatEmailAsName(user.email); // No role yet or anonymous
 
+                            // --- NEW: Set photoUrl from userData ---
+                            photoUrl = userData.photoUrl;
+                            // --- END NEW ---
+
+                            // --- NEW: Seed Demo Data (Rides & Rewards) ---
+                            if (!userData.demoDataSeeded && !user.isAnonymous) {
+                                console.log("Seeding demo data for user...");
+                                const ridesColRef = collection(db, 'artifacts', appId, 'users', userId, 'rides');
+                                await addDoc(ridesColRef, {
+                                    location: "City Center to Airport",
+                                    date: "2025-10-28T15:30:00Z",
+                                    driver: "Ramesh Kumar",
+                                    price: 450,
+                                    type: "car"
+                                });
+                                await addDoc(ridesColRef, {
+                                    location: "Sector 14 to Cyber Hub",
+                                    date: "2025-10-27T09:00:00Z",
+                                    driver: "Priya Singh",
+                                    price: 120,
+                                    type: "motorcycle"
+                                });
+
+                                const rewardsColRef = collection(db, 'artifacts', appId, 'users', userId, 'rewards');
+                                await addDoc(rewardsColRef, {
+                                    title: "50% Off First Ride",
+                                    description: "Valid for your first ride. Expires in 7 days.",
+                                    icon: "fa-percentage",
+                                    claimed: false
+                                });
+                                await addDoc(rewardsColRef, {
+                                    title: "₹25 Wallet Credit",
+                                    description: "From 'Refer a Friend' bonus.",
+                                    icon: "fa-rupee-sign",
+                                    claimed: true
+                                });
+
+                                // Mark as seeded
+                                await updateDoc(userDocRef, { demoDataSeeded: true });
+                                userData.demoDataSeeded = true; // Update local copy
+                            }
+                            // --- END Seed Demo Data ---
+
+
                         } else {
                             if (!user.isAnonymous) {
                                 console.warn("User document not found for UID:", userId, "Creating one.");
@@ -141,14 +227,19 @@
                                 await setDoc(userDocRef, {
                                     email: user.email,
                                     role: 'unknown',
-                                    createdAt: new Date().toISOString()
+                                    createdAt: new Date().toISOString(),
+                                    walletBalance: 0
                                 });
                                 userRole = 'unknown';
+                                userData = { role: 'unknown', email: user.email, walletBalance: 0 };
                             } else {
                                 userRole = 'guest';
                                 userName = 'Guest';
+                                userData = { role: 'guest', name: 'Guest' };
                             }
                         }
+
+                        window.currentUserData = userData; // <-- NEW: Set global userData
 
                         // --- NEW: Populate Profile Dropdown ---
                         // --- FIX 3: This code is now safe because userData is always an object ---
@@ -166,15 +257,21 @@
 
                     } catch (error) {
                         console.error("Error fetching user document:", error);
+                        window.currentUserData = { role: 'guest' }; // Set fallback
                     }
 
-                    // --- NEW LOGIC FOR PROFILE INITIAL ---
-                    if (navUserInitial) {
-                        let initial = 'G'; // Default 'Guest'
-                        if (userName) {
-                            initial = userName.charAt(0).toUpperCase();
+                    // --- NEW LOGIC FOR PROFILE PHOTO ---
+                    if (navUserPhoto) {
+                        if (photoUrl) {
+                            navUserPhoto.src = photoUrl;
+                        } else {
+                            let initial = 'G'; // Default 'Guest'
+                            if (userName) {
+                                initial = userName.charAt(0).toUpperCase();
+                            }
+                            // Use placeholder service to generate an initial image
+                            navUserPhoto.src = `https://placehold.co/40x40/ccc/eee?text=${initial}`;
                         }
-                        navUserInitial.textContent = initial;
                     }
                     // --- END NEW LOGIC ---
 
@@ -201,6 +298,12 @@
                         communityRegisterSubtitle.textContent = 'You are logged in. Please select your role in the community to continue.';
                     }
 
+                    // --- NEW: Populate Modals ---
+                    if (window.populateWallet) window.populateWallet();
+                    if (window.populateRides) window.populateRides();
+                    if (window.populateRewards) window.populateRewards();
+                    // --- END NEW ---
+
                     closeModal(); // Hide any open auth modals
 
                 } else {
@@ -208,8 +311,11 @@
                     console.log('User logged out');
                     navAuthLinks.style.display = 'flex'; // Show Login/Sign Up
                     navUserInfo.style.display = 'none';
-                    if (navUserInitial) navUserInitial.textContent = ''; // <-- ADDED: Clear initial
+                    if (navUserPhoto) navUserPhoto.src = 'https://placehold.co/40x40/ccc/eee?text=G'; // <-- ADDED: Reset photo
                     if (navUserInfo) navUserInfo.className = 'dropdown'; // <!-- ADDED LINE -->
+
+                    window.currentUserId = null; // <-- NEW
+                    window.currentUserData = {}; // <-- NEW
 
                     // --- NEW: Reset Profile Dropdown ---
                     if (profileDropdownName) profileDropdownName.textContent = 'Guest';
@@ -226,6 +332,12 @@
                     communityRegisterView.style.display = 'none';
                     communityProfileView.style.display = 'none';
                     communityProfileView.className = '';
+
+                    // --- NEW: Clear Modals ---
+                    if (window.populateWallet) window.populateWallet();
+                    if (window.populateRides) window.populateRides();
+                    if (window.populateRewards) window.populateRewards();
+                    // --- END NEW ---
                 }
             });
 
@@ -277,6 +389,12 @@
             const driverMapContainer = document.getElementById('driver-map-container');
             const emergencyMapContainer = document.getElementById('emergency-map-container');
 
+            // --- NEW: Photo File Holders ---
+            let driverPhotoFile = null;
+            let travelerPhotoFile = null;
+            let emergencyPhotoFile = null;
+            // --- END NEW ---
+
             // --- Modal Control Functions ---
             const allFormWrappers = [loginFormWrapper, signupFormWrapper, driverFormWrapper, emergencyFormWrapper, travelerFormWrapper];
             const allSuccessMessages = [driverSuccess, emergencySuccess, travelerSuccess];
@@ -303,6 +421,16 @@
                 if (driverForm) driverForm.reset();
                 if (emergencyForm) emergencyForm.reset();
                 if (travelerForm) travelerForm.reset();
+
+                // --- NEW: Reset photo previews ---
+                const previews = document.querySelectorAll('.photo-preview');
+                const icons = document.querySelectorAll('.upload-icon');
+                previews.forEach(p => p.classList.remove('active'));
+                icons.forEach(i => i.classList.remove('hidden'));
+                driverPhotoFile = null;
+                travelerPhotoFile = null;
+                emergencyPhotoFile = null;
+                // --- END NEW ---
 
                 if (driverMapContainer) {
                     driverMapContainer.style.display = 'none';
@@ -441,7 +569,8 @@
                         await setDoc(doc(db, 'artifacts', appId, 'users', userId), {
                             email: email,
                             role: 'unknown',
-                            createdAt: new Date().toISOString()
+                            createdAt: new Date().toISOString(),
+                            walletBalance: 0
                         });
 
                         // Auth listener (onAuthStateChanged) will handle UI changes
@@ -474,15 +603,32 @@
 
                     const formData = new FormData(driverForm);
                     const data = Object.fromEntries(formData.entries());
+                    // --- REMOVED driverPhoto from data destructuring ---
                     const { driverName, driverPhone, vehicleType, licensePlate, vehicleMake, vehicleModel, driverDestination } = data;
 
                     try {
                         const userId = user.uid;
+                        let photoUrl = null; // <-- NEW
+
+                        // --- NEW: Upload photo if it exists ---
+                        if (driverPhotoFile) {
+                            if (driverRegError) {
+                                driverRegError.textContent = 'Uploading photo...'; // Show status
+                                driverRegError.style.display = 'block';
+                            }
+                            const photoRef = window.fs.storage_ref(window.storage, `artifacts/${appId}/user_photos/${userId}/profile.jpg`);
+                            const snapshot = await window.fs.uploadBytes(photoRef, driverPhotoFile);
+                            photoUrl = await window.fs.getDownloadURL(snapshot.ref);
+                            if (driverRegError) driverRegError.textContent = 'Photo uploaded!'; // Update status
+                        }
+                        // --- END NEW ---
+
                         const userData = {
                             email: user.email, // Get email from the logged-in user
                             name: driverName,
                             phone: driverPhone,
                             role: 'driver', // Set the role
+                            photoUrl: photoUrl, // <-- CHANGED from photoFilename
                             vehicleType: vehicleType,
                             licensePlate: licensePlate,
                             vehicleMake: vehicleMake,
@@ -491,7 +637,15 @@
                             createdAt: new Date().toISOString() // Or update, but new timestamp is fine
                         };
 
-                        await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData);
+                        await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData, { merge: true });
+
+                        // --- NEW: Reset file and preview ---
+                        driverPhotoFile = null;
+                        const driverPreview = document.getElementById('driver-photo-preview');
+                        const driverIcon = document.getElementById('driver-photo-icon');
+                        if(driverPreview) driverPreview.classList.remove('active');
+                        if(driverIcon) driverIcon.classList.remove('hidden');
+                        // --- END NEW ---
 
                         // Show success
                         if (driverFormWrapper) driverFormWrapper.style.display = 'none';
@@ -525,20 +679,45 @@
 
                     const formData = new FormData(travelerForm);
                     const data = Object.fromEntries(formData.entries());
+                    // --- REMOVED travelerPhoto from data destructuring ---
                     const { travelerName, travelerPhone, travelerLocation } = data;
 
                     try {
                         const userId = user.uid;
+                        let photoUrl = null; // <-- NEW
+
+                        // --- NEW: Upload photo if it exists ---
+                        if (travelerPhotoFile) {
+                            if (travelerRegError) {
+                                travelerRegError.textContent = 'Uploading photo...'; // Show status
+                                travelerRegError.style.display = 'block';
+                            }
+                            const photoRef = window.fs.storage_ref(window.storage, `artifacts/${appId}/user_photos/${userId}/profile.jpg`);
+                            const snapshot = await window.fs.uploadBytes(photoRef, travelerPhotoFile);
+                            photoUrl = await window.fs.getDownloadURL(snapshot.ref);
+                            if (travelerRegError) travelerRegError.textContent = 'Photo uploaded!'; // Update status
+                        }
+                        // --- END NEW ---
+
                         const userData = {
                             email: user.email, // Get email from logged-in user
                             name: travelerName,
                             phone: travelerPhone,
                             role: 'traveler', // Set the role
+                            photoUrl: photoUrl, // <-- CHANGED from photoFilename
                             defaultLocation: travelerLocation,
                             createdAt: new Date().toISOString()
                         };
 
-                        await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData);
+                        await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData, { merge: true });
+
+                        // --- NEW: Reset file and preview ---
+                        travelerPhotoFile = null;
+                        const travelerPreview = document.getElementById('traveler-photo-preview');
+                        const travelerIcon = document.getElementById('traveler-photo-icon');
+                        if(travelerPreview) travelerPreview.classList.remove('active');
+                        if(travelerIcon) travelerIcon.classList.remove('hidden');
+                        // --- END NEW ---
 
                         if (travelerFormWrapper) travelerFormWrapper.style.display = 'none';
                         if (travelerSuccess) travelerSuccess.style.display = 'block';
@@ -571,15 +750,32 @@
 
                     const formData = new FormData(emergencyForm);
                     const data = Object.fromEntries(formData.entries());
+                    // --- REMOVED servicePhoto from data destructuring ---
                     const { serviceType, serviceId, serviceName, servicePhone, serviceVehicleId, serviceVehicleType, emergencyDestination } = data;
 
                     try {
                         const userId = user.uid;
+                        let photoUrl = null; // <-- NEW
+
+                        // --- NEW: Upload photo if it exists ---
+                        if (emergencyPhotoFile) {
+                            if (emergencyRegError) {
+                                emergencyRegError.textContent = 'Uploading photo...'; // Show status
+                                emergencyRegError.style.display = 'block';
+                            }
+                            const photoRef = window.fs.storage_ref(window.storage, `artifacts/${appId}/user_photos/${userId}/profile.jpg`);
+                            const snapshot = await window.fs.uploadBytes(photoRef, emergencyPhotoFile);
+                            photoUrl = await window.fs.getDownloadURL(snapshot.ref);
+                            if (emergencyRegError) emergencyRegError.textContent = 'Photo uploaded!'; // Update status
+                        }
+                        // --- END NEW ---
+                        
                         const serviceData = {
                             email: user.email, // Get email from logged-in user
                             operatorName: serviceName,
                             phone: servicePhone,
                             role: 'emergency', // Set the role
+                            photoUrl: photoUrl, // <-- CHANGED from photoFilename
                             serviceType: serviceType,
                             serviceId: serviceId,
                             vehicleId: serviceVehicleId,
@@ -589,7 +785,15 @@
                             createdAt: new Date().toISOString()
                         };
 
-                        await setDoc(doc(db, 'artifacts', appId, 'users', userId), serviceData);
+                        await setDoc(doc(db, 'artifacts', appId, 'users', userId), serviceData, { merge: true });
+
+                        // --- NEW: Reset file and preview ---
+                        emergencyPhotoFile = null;
+                        const emergencyPreview = document.getElementById('emergency-photo-preview');
+                        const emergencyIcon = document.getElementById('emergency-photo-icon');
+                        if(emergencyPreview) emergencyPreview.classList.remove('active');
+                        if(emergencyIcon) emergencyIcon.classList.remove('hidden');
+                        // --- END NEW ---
 
                         if (emergencyFormWrapper) emergencyFormWrapper.style.display = 'none';
                         if (emergencySuccess) emergencySuccess.style.display = 'block';
@@ -977,11 +1181,12 @@
         }
 
         /* === NEW: Profile Initial Circle Style === */
-        #nav-user-initial {
+        /* This now targets the IMG tag */
+        .nav-user-photo-class {
             width: 38px;
             height: 38px;
             border-radius: 50%;
-            background: var(--primary-color);
+            background: var(--primary-color); /* Fallback bg */
             color: white;
             display: flex;
             align-items: center;
@@ -991,9 +1196,11 @@
             font-family: 'Montserrat', sans-serif;
             border: 2px solid #fff;
             transition: all 0.3s ease;
+            object-fit: cover; /* Ensures image covers the circle */
+            cursor: pointer;
         }
 
-        #nav-user-info:hover #nav-user-initial {
+        #nav-user-info:hover .nav-user-photo-class {
             transform: scale(1.1);
             box-shadow: 0 0 10px rgba(255, 77, 77, 0.7);
         }
@@ -1001,30 +1208,34 @@
         /* === END NEW === */
 
         /* --- NEW: Profile Icon Color by Role --- */
-        .profile-role-traveler #nav-user-initial {
+        .profile-role-traveler .nav-user-photo-class {
             background: #007bff;
             border-color: #f0f7ff;
             box-shadow: 0 0 10px rgba(0, 123, 255, 0.7);
         }
 
-        .profile-role-traveler:hover #nav-user-initial {
+        .profile-role-traveler:hover .nav-user-photo-class {
             box-shadow: 0 0 10px rgba(0, 123, 255, 0.7);
         }
 
-        .profile-role-driver #nav-user-initial {
+        .profile-role-driver .nav-user-photo-class {
             background: #4CAF50;
             border-color: #f0fff0;
             box-shadow: 0 0 10px rgba(76, 175, 80, 0.7);
         }
 
-        .profile-role-driver:hover #nav-user-initial {
+        .profile-role-driver:hover .nav-user-photo-class {
             box-shadow: 0 0 10px rgba(76, 175, 80, 0.7);
         }
 
-        .profile-role-emergency #nav-user-initial {
+        .profile-role-emergency .nav-user-photo-class {
             background: var(--primary-color);
             /* Already red */
             border-color: #fff0f0;
+            box-shadow: 0 0 10px rgba(255, 77, 77, 0.7);
+        }
+
+        .profile-role-emergency:hover .nav-user-photo-class {
             box-shadow: 0 0 10px rgba(255, 77, 77, 0.7);
         }
 
@@ -1136,6 +1347,35 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
+
+        /* --- NEW: Photo Upload Options --- */
+        .profile-photo-options {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px 5px;
+            background: #fdfdfd;
+            border-bottom: 1px solid #eee;
+        }
+        .profile-photo-options a {
+            flex: 1;
+            text-align: center;
+            padding: 10px 5px !important;
+            font-size: 0.9em !important;
+            gap: 8px !important;
+            flex-direction: column;
+            color: #555 !important;
+        }
+        .profile-photo-options a i {
+            margin: 0 !important;
+            width: auto !important;
+            font-size: 1.4em !important;
+            color: var(--primary-color);
+        }
+        .profile-photo-options a:hover {
+            background: #f5f5f5 !important;
+            color: var(--primary-color) !important;
+        }
+         /* --- END NEW --- */
 
         /* Standard Menu Items */
         #profile-dropdown-menu li a {
@@ -1607,6 +1847,10 @@
             overflow-y: auto;
         }
 
+        .ride-history-list li {
+            padding: 10px 5px;
+        }
+
         .ride-item {
             display: flex;
             gap: 15px;
@@ -1807,6 +2051,10 @@
             overflow-y: auto;
         }
 
+        .rewards-list li {
+            padding: 5px 0;
+        }
+
         .reward-item {
             display: flex;
             align-items: center;
@@ -1855,6 +2103,11 @@
 
         .reward-item .claim-btn:hover {
             background: var(--accent-hover);
+        }
+
+        .reward-item .claim-btn[disabled] {
+            background: #ccc;
+            cursor: not-allowed;
         }
 
         /* --- END Refer & Rewards Styles --- */
@@ -2810,6 +3063,83 @@
             font-weight: 600;
         }
 
+        /* === NEW: Circular Photo Uploader === */
+        .profile-photo-uploader {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 25px; /* Center it */
+            cursor: pointer;
+            border-radius: 50%;
+            background: #f0f0f0;
+            border: 3px dashed #ccc;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden; /* To keep image circular */
+        }
+        .profile-photo-uploader:hover {
+            border-color: var(--primary-color);
+            background: #e9e9e9;
+        }
+        .profile-photo-uploader .upload-icon {
+            font-size: 3em;
+            color: #aaa;
+            transition: all 0.3s ease;
+        }
+        .profile-photo-uploader:hover .upload-icon {
+            color: var(--primary-color);
+            transform: scale(1.1);
+        }
+        .profile-photo-uploader .photo-preview {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* This is key */
+            border-radius: 50%;
+            display: none; /* Hide by default */
+        }
+        .profile-photo-uploader .photo-preview.active {
+            display: block;
+        }
+        .profile-photo-uploader .upload-icon.hidden {
+            display: none;
+        }
+        /* === END NEW === */
+
+        /* === NEW: File Input Styles === */
+        .form-group-file label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+        .form-group-file input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 0.95em;
+            background: #f9f9f9;
+        }
+        .form-group-file input[type="file"]::file-selector-button {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: background 0.3s;
+        }
+        .form-group-file input[type="file"]::file-selector-button:hover {
+            background: #555;
+        }
+        /* === END NEW === */
+
         /* === NEW PROFILE VIEW STYLES === */
         #community-profile-view {
             border: 4px solid var(--border-color);
@@ -3064,8 +3394,8 @@
 
             <!-- This shows when logged IN -->
             <li id="nav-user-info" class="dropdown" style="display: none; align-items: center; gap: 15px;">
-                <!-- NEW: Profile Initial Circle -->
-                <div id="nav-user-initial"></div>
+                <!-- NEW: Profile Photo Circle -->
+                <img id="nav-user-photo" src="https://placehold.co/40x40/ccc/eee?text=G" alt="Profile" class="nav-user-photo-class">
                 <!-- <a href="#" id="nav-logout-btn" style="color: #fff; background: var(--primary-color); padding: 5px 10px; border-radius: 5px;">Logout</a> -->
                 <!-- OLD LOGOUT BTN - REMOVED -->
 
@@ -3078,6 +3408,18 @@
                             <p id="profile-dropdown-contact">Please log in</p>
                         </div>
                     </li>
+                    <!-- NEW PHOTO UPLOAD OPTIONS -->
+                    <li class="profile-photo-options">
+                        <a href="#" id="photo-gallery-btn">
+                            <i class="fas fa-images"></i>
+                            <span>Add from Gallery</span>
+                        </a>
+                        <a href="#" id="photo-camera-btn">
+                            <i class="fas fa-camera"></i>
+                            <span>Click a Photo</span>
+                        </a>
+                    </li>
+                    <!-- END NEW PHOTO UPLOAD OPTIONS -->
                     <li class="profile-menu-rating">
                         <a href="#" data-modal-target="rating-modal">
                             <i class="fas fa-star"></i>
@@ -3281,6 +3623,25 @@
 
     </main>
 
+    <!-- Hidden File Inputs for Profile Photo -->
+    <input type="file" id="photo-gallery-input" accept="image/*" style="display: none;">
+    <input type="file" id="photo-camera-input" accept="image/*" capture="user" style="display: none;">
+
+    <!-- === NEW: Custom Alert Modal === -->
+    <div id="custom-alert-modal" class="profile-modal-overlay" style="z-index: 10001;"> <!-- Highest z-index -->
+        <div class="profile-modal-content" style="max-width: 400px; text-align: center;">
+            <span class="profile-modal-close">&times;</span>
+            <div id="custom-alert-icon" style="font-size: 3em; margin-bottom: 15px;">
+                <!-- Icon will be set by JS -->
+            </div>
+            <h3 id="custom-alert-title" style="font-size: 1.5em; color: var(--secondary-color); margin-bottom: 10px;"></h3>
+            <p id="custom-alert-message" style="font-size: 1em; color: #555; line-height: 1.6;"></p>
+            <button id="custom-alert-close-btn" class="submit-btn" style="margin-top: 20px;">OK</button>
+        </div>
+    </div>
+    <!-- === END Custom Alert Modal === -->
+
+
     <!-- 
         FIX: The broken HTML fragment that was here has been removed.
         The block below is the correct, functioning modal.
@@ -3342,7 +3703,13 @@
                     <p id="reg-form-subtitle-driver">Please provide your driver and vehicle details.</p>
                 </div>
                 <form id="driver-registration-form">
-                    <!-- REMOVED Account Details (Email/Password) -->
+                    <!-- === NEW CIRCULAR PHOTO UPLOADER === -->
+                    <div class="profile-photo-uploader" id="driver-photo-uploader-port" title="Click to add profile photo">
+                        <i class="fas fa-camera upload-icon" id="driver-photo-icon"></i>
+                        <img src="#" alt="Profile Preview" class="photo-preview" id="driver-photo-preview">
+                    </div>
+                    <input type="file" id="driver-photo-input-hidden" accept="image/*" style="display: none;">
+                    <!-- === END NEW === -->
 
                     <h3
                         style="font-weight: 600; color: #333; margin-top: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
@@ -3355,6 +3722,7 @@
                         <label for="driverPhone"><i class="fas fa-phone"></i>Phone Number</label>
                         <input type="tel" id="driverPhone" name="driverPhone" required>
                     </div>
+                    <!-- === REMOVED OLD PHOTO INPUT === -->
 
                     <h3
                         style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
@@ -3413,7 +3781,13 @@
                     <p id="reg-form-subtitle-traveler">Tell us a bit about yourself.</p>
                 </div>
                 <form id="traveler-registration-form">
-                    <!-- REMOVED Account Details (Email/Password) -->
+                    <!-- === NEW CIRCULAR PHOTO UPLOADER === -->
+                    <div class="profile-photo-uploader" id="traveler-photo-uploader-port" title="Click to add profile photo">
+                        <i class="fas fa-camera upload-icon" id="traveler-photo-icon"></i>
+                        <img src="#" alt="Profile Preview" class="photo-preview" id="traveler-photo-preview">
+                    </div>
+                    <input type="file" id="traveler-photo-input-hidden" accept="image/*" style="display: none;">
+                    <!-- === END NEW === -->
 
                     <h3
                         style="font-weight: 600; color: #333; margin-top: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
@@ -3426,6 +3800,7 @@
                         <label for="travelerPhone"><i class="fas fa-phone"></i>Phone Number</label>
                         <input type="tel" id="travelerPhone" name="travelerPhone" required>
                     </div>
+                    <!-- === REMOVED OLD PHOTO INPUT === -->
                     <div class="form-group">
                         <label for="travelerLocation"><i class="fas fa-map-marker-alt"></i>Default Pickup Location
                             (Optional)</label>
@@ -3446,7 +3821,13 @@
                     <p id="reg-form-subtitle-emergency">Register your service for priority routing.</p>
                 </div>
                 <form id="emergency-registration-form">
-                    <!-- REMOVED Account Details (Email/Password) -->
+                    <!-- === NEW CIRCULAR PHOTO UPLOADER === -->
+                    <div class="profile-photo-uploader" id="emergency-photo-uploader-port" title="Click to add profile photo">
+                        <i class="fas fa-camera upload-icon" id="emergency-photo-icon"></i>
+                        <img src="#" alt="Profile Preview" class="photo-preview" id="emergency-photo-preview">
+                    </div>
+                    <input type="file" id="emergency-photo-input-hidden" accept="image/*" style="display: none;">
+                    <!-- === END NEW === -->
 
                     <h3
                         style="font-weight: 600; color: #333; margin-top: 10px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
@@ -3474,6 +3855,7 @@
                         <label for="servicePhone"><i class="fas fa-phone-alt"></i>Dispatch Phone</label>
                         <input type="tel" id="servicePhone" name="servicePhone" required>
                     </div>
+                    <!-- === REMOVED OLD PHOTO INPUT === -->
 
                     <h3
                         style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
@@ -3693,33 +4075,8 @@
             <p>Here is a history of your recent rides with SafeReturn community drivers.</p>
 
             <ul class="ride-history-list">
-                <li class="ride-item">
-                    <div class="icon"><i class="fas fa-car-side"></i></div>
-                    <div class="ride-details">
-                        <p>City Center to Airport</p>
-                        <span>Oct 28, 2025 - 3:30 PM</span>
-                        <span>Driver: Ramesh Kumar</span>
-                    </div>
-                    <div class="ride-price">₹450</div>
-                </li>
-                <li class="ride-item">
-                    <div class="icon"><i class="fas fa-motorcycle"></i></div>
-                    <div class="ride-details">
-                        <p>Sector 14 to Cyber Hub</p>
-                        <span>Oct 27, 2025 - 9:00 AM</span>
-                        <span>Driver: Priya Singh</span>
-                    </div>
-                    <div class="ride-price">₹120</div>
-                </li>
-                <li class="ride-item">
-                    <div class="icon"><i class="fas fa-car-side"></i></div>
-                    <div class="ride-details">
-                        <p>Railway Station to Home</p>
-                        <span>Oct 25, 2025 - 8:15 PM</span>
-                        <span>Driver: Self-Drive Booking</span>
-                    </div>
-                    <div class="ride-price">₹210</div>
-                </li>
+                <!-- Static content removed, will be populated by JS -->
+                <li><p>Loading ride history...</p></li>
             </ul>
         </div>
     </div>
@@ -3783,30 +4140,8 @@
             <p>Here are your available coupons and rewards. Click "Claim" to use them.</p>
 
             <ul class="rewards-list">
-                <li class="reward-item">
-                    <div class="icon"><i class="fas fa-percentage"></i></div>
-                    <div class="details">
-                        <h4>50% Off First Ride</h4>
-                        <p>Valid for your first ride as a traveler. Expires in 7 days.</p>
-                    </div>
-                    <button class="claim-btn">Claim</button>
-                </li>
-                <li class="reward-item">
-                    <div class="icon"><i class="fas fa-rupee-sign"></i></div>
-                    <div class="details">
-                        <h4>₹25 Wallet Credit</h4>
-                        <p>From "Refer a Friend" bonus. Added to your wallet.</p>
-                    </div>
-                    <button class="claim-btn" disabled style="background: #ccc; cursor: not-allowed;">Claimed</button>
-                </li>
-                <li class="reward-item">
-                    <div class="icon"><i class="fas fa-coffee"></i></div>
-                    <div class="details">
-                        <h4>Free Coffee</h4>
-                        <p>Redeem at any partner 'Safe Stop' cafe. Expires Oct 31.</p>
-                    </div>
-                    <button class="claim-btn">Claim</button>
-                </li>
+                <!-- Static content removed, will be populated by JS -->
+                <li><p>Loading rewards...</p></li>
             </ul>
         </div>
     </div>
@@ -3912,6 +4247,186 @@
             });
             // --- END NEW PROFILE MENU CLICK LOGIC ---
             // --- END FIX 1 ---
+
+            // --- NEW: Custom Alert Modal Logic ---
+            const alertModal = document.getElementById('custom-alert-modal');
+            const alertIcon = document.getElementById('custom-alert-icon');
+            const alertTitle = document.getElementById('custom-alert-title');
+            const alertMessage = document.getElementById('custom-alert-message');
+            const alertClose = alertModal.querySelector('.profile-modal-close');
+            const alertCloseBtn = document.getElementById('custom-alert-close-btn');
+
+            const showAlert = (title, message, icon = 'info') => {
+                if (!alertModal) return; // Safety check
+
+                alertTitle.textContent = title;
+                alertMessage.innerHTML = message; // Use innerHTML to allow simple line breaks
+
+                // Set icon
+                if (icon === 'success') {
+                    alertIcon.innerHTML = '<i class="fas fa-check-circle" style="color: #4CAF50;"></i>';
+                } else if (icon === 'warning') {
+                    alertIcon.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: #f39c12;"></i>';
+                } else if (icon === 'error') {
+                    alertIcon.innerHTML = '<i class="fas fa-times-circle" style="color: var(--primary-color);"></i>';
+                } else {
+                    alertIcon.innerHTML = '<i class="fas fa-info-circle" style="color: #007bff;"></i>';
+                }
+
+                alertModal.classList.add('active');
+            };
+
+            const closeAlertModal = () => {
+                if (alertModal) alertModal.classList.remove('active');
+            };
+
+            if (alertClose) alertClose.addEventListener('click', closeAlertModal);
+            if (alertCloseBtn) alertCloseBtn.addEventListener('click', closeAlertModal);
+            // --- END Custom Alert Modal Logic ---
+
+
+            // --- NEW: Photo Upload Logic ---
+            const galleryBtn = document.getElementById('photo-gallery-btn');
+            const cameraBtn = document.getElementById('photo-camera-btn');
+            const galleryInput = document.getElementById('photo-gallery-input');
+            const cameraInput = document.getElementById('photo-camera-input');
+            const navUserPhotoEl = document.getElementById('nav-user-photo');
+
+            if (galleryBtn) {
+                galleryBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (galleryInput) galleryInput.click();
+                });
+            }
+
+            if (cameraBtn) {
+                cameraBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (cameraInput) cameraInput.click();
+                });
+            }
+
+            const handlePhotoUpload = (file) => {
+                if (!file) return;
+                if (!file.type.startsWith('image/')) {
+                    showAlert('Invalid File', 'Please select an image file.', 'warning');
+                    return;
+                }
+
+                // Use the globally set instances
+                if (!window.currentUserId || !window.storage || !window.db || !window.fs) {
+                    showAlert('Not Logged In', 'You must be logged in to change your photo.', 'error');
+                    return;
+                }
+
+                // Close the profile dropdown
+                const profileMenu = document.getElementById('profile-dropdown-menu');
+                if (profileMenu) profileMenu.classList.remove('active');
+                
+                showAlert('Uploading...', 'Your photo is being uploaded. Please wait.', 'info');
+
+                const userId = window.currentUserId;
+                const appId = window.appId;
+                // Use window.fs.storage_ref
+                const photoRef = window.fs.storage_ref(window.storage, `artifacts/${appId}/user_photos/${userId}/profile.jpg`);
+                let fileDownloadURL = ''; // Variable to hold the URL
+
+                // Use window.fs.uploadBytes
+                window.fs.uploadBytes(photoRef, file)
+                    .then(snapshot => {
+                        // Use window.fs.getDownloadURL
+                        return window.fs.getDownloadURL(snapshot.ref);
+                    })
+                    .then(downloadURL => {
+                        fileDownloadURL = downloadURL; // Store URL
+                        // Update Firestore
+                        // Use window.fs.doc
+                        const userDocRef = window.fs.doc(window.db, 'artifacts', appId, 'users', userId);
+                        // Use window.fs.updateDoc
+                        return window.fs.updateDoc(userDocRef, {
+                            photoUrl: fileDownloadURL
+                        });
+                    })
+                    .then(() => {
+                        // Update UI
+                        if (navUserPhotoEl) {
+                            navUserPhotoEl.src = fileDownloadURL; // Use stored URL
+                        }
+                        // Update global data
+                        if (window.currentUserData) {
+                            window.currentUserData.photoUrl = fileDownloadURL;
+                        }
+                        
+                        showAlert('Success', 'Profile photo updated!', 'success');
+                    })
+                    .catch(error => {
+                        console.error("Photo upload error:", error);
+                        showAlert('Upload Failed', `Error: ${error.message}`, 'error');
+                    });
+            };
+
+            if (galleryInput) {
+                galleryInput.addEventListener('change', (e) => {
+                    handlePhotoUpload(e.target.files[0]);
+                    e.target.value = null; // Reset input
+                });
+            }
+
+            if (cameraInput) {
+                cameraInput.addEventListener('change', (e) => {
+                    handlePhotoUpload(e.target.files[0]);
+                    e.target.value = null; // Reset input
+                });
+            }
+            // --- END Photo Upload Logic ---
+
+
+            // --- NEW: Circular Photo Uploader Logic ---
+            const setupPhotoUploader = (portId, inputId, previewId, iconId, fileStore) => {
+                const port = document.getElementById(portId);
+                const input = document.getElementById(inputId);
+                const preview = document.getElementById(previewId);
+                const icon = document.getElementById(iconId);
+
+                if (!port || !input || !preview || !icon) return;
+
+                port.addEventListener('click', () => input.click());
+
+                input.addEventListener('change', (e) => {
+                    const file = e.target.files[0];
+                    if (file && file.type.startsWith('image/')) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            preview.src = event.target.result;
+                            preview.classList.add('active');
+                            icon.classList.add('hidden');
+                        };
+                        reader.readAsDataURL(file);
+                        
+                        // Store the file object
+                        if (fileStore === 'driver') window.driverPhotoFile = file;
+                        if (fileStore === 'traveler') window.travelerPhotoFile = file;
+                        if (fileStore === 'emergency') window.emergencyPhotoFile = file;
+
+                    } else {
+                        // Reset
+                        preview.src = '#';
+                        preview.classList.remove('active');
+                        icon.classList.remove('hidden');
+                        if (fileStore === 'driver') window.driverPhotoFile = null;
+                        if (fileStore === 'traveler') window.travelerPhotoFile = null;
+                        if (fileStore === 'emergency') window.emergencyPhotoFile = null;
+                    }
+                    // Clear the input value to allow re-uploading the same file
+                    e.target.value = null;
+                });
+            };
+
+            setupPhotoUploader('driver-photo-uploader-port', 'driver-photo-input-hidden', 'driver-photo-preview', 'driver-photo-icon', 'driver');
+            setupPhotoUploader('traveler-photo-uploader-port', 'traveler-photo-input-hidden', 'traveler-photo-preview', 'traveler-photo-icon', 'traveler');
+            setupPhotoUploader('emergency-photo-uploader-port', 'emergency-photo-input-hidden', 'emergency-photo-preview', 'emergency-photo-icon', 'emergency');
+            // --- END NEW ---
+
 
             // --- Sidebar Logic ---
             const sidebar = document.getElementById('sidebar');
@@ -4029,39 +4544,59 @@
             }
 
             if (submitReviewBtn) {
-                submitReviewBtn.addEventListener('click', () => {
+                submitReviewBtn.addEventListener('click', async () => {
                     const comment = document.getElementById('review-comment').value;
-                    console.log(`Submitting Review: ${currentRating} stars, Comment: "${comment}"`);
+                    
+                    if (!window.currentUserId || !window.db) {
+                        showAlert('Not Logged In', 'You must be logged in to leave a review.', 'error');
+                        return;
+                    }
 
-                    // Here you would save to Firestore, e.g.:
-                    // const user = auth.currentUser;
-                    // if (user) {
-                    //     await addDoc(collection(db, 'artifacts', appId, 'reviews'), {
-                    //         userId: user.uid,
-                    //         rating: currentRating,
-                    //         comment: comment,
-                    //         createdAt: new Date().toISOString()
-                    //     });
-                    // }
+                    if (currentRating === 0) {
+                         showAlert('No Rating', 'Please select at least one star.', 'warning');
+                        return;
+                    }
 
-                    // Show success message
-                    if (ratingContent) ratingContent.style.display = 'none';
-                    if (ratingSuccess) ratingSuccess.style.display = 'block';
+                    submitReviewBtn.disabled = true;
+                    submitReviewBtn.textContent = 'Submitting...';
 
-                    // Reset modal after a delay
-                    setTimeout(() => {
-                        // Hide modal
-                        if (ratingModal) ratingModal.classList.remove('active');
+                    try {
+                        const reviewData = {
+                            userId: window.currentUserId,
+                            name: window.currentUserData.name || 'Anonymous',
+                            rating: currentRating,
+                            comment: comment,
+                            createdAt: new Date().toISOString()
+                        };
+                        // Save to a new public collection: /artifacts/{appId}/public/reviews
+                        // --- FIX: Use window.fs.addDoc and window.fs.collection ---
+                        await window.fs.addDoc(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'reviews'), reviewData);
 
-                        // Reset content
-                        // Use a short delay to avoid flash of content before modal closes
+                        // Show success message
+                        if (ratingContent) ratingContent.style.display = 'none';
+                        if (ratingSuccess) ratingSuccess.style.display = 'block';
+
+                        // Reset modal after a delay
                         setTimeout(() => {
-                            if (ratingContent) ratingContent.style.display = 'block';
-                            if (ratingSuccess) ratingSuccess.style.display = 'none';
-                            setRating(0); // Reset stars
-                            document.getElementById('review-comment').value = '';
-                        }, 400); // Should match modal transition time
-                    }, 2500);
+                            // Hide modal
+                            if (ratingModal) ratingModal.classList.remove('active');
+
+                            // Reset content
+                            setTimeout(() => {
+                                if (ratingContent) ratingContent.style.display = 'block';
+                                if (ratingSuccess) ratingSuccess.style.display = 'none';
+                                setRating(0); // Reset stars
+                                document.getElementById('review-comment').value = '';
+                            }, 400);
+                        }, 2500);
+
+                    } catch (error) {
+                        console.error("Error submitting review:", error);
+                        showAlert('Error', 'Could not submit your review. Please try again.', 'error');
+                    } finally {
+                        submitReviewBtn.disabled = false;
+                        submitReviewBtn.textContent = 'Submit Review';
+                    }
                 });
             }
 
@@ -4103,13 +4638,6 @@
                     const details = item.querySelector('.faq-details');
                     const isOpen = item.classList.contains('active');
 
-                    // Close all others (optional, uncomment if you want only one open)
-                    // faqItems.forEach(i => {
-                    //     i.classList.remove('active');
-                    //     i.querySelector('.faq-details').classList.remove('open');
-                    //     i.querySelector('.faq-details').style.maxHeight = null;
-                    // });
-
                     if (isOpen) {
                         item.classList.remove('active');
                         details.classList.remove('open');
@@ -4136,6 +4664,18 @@
 
 
             // --- NEW: Wallet Modal Logic ---
+            const populateWallet = () => {
+                const balanceEl = document.querySelector('#payment-modal .wallet-balance h3');
+                if (!balanceEl) return;
+
+                if (window.currentUserId && window.currentUserData.walletBalance) {
+                    balanceEl.textContent = `₹${parseFloat(window.currentUserData.walletBalance).toFixed(2)}`;
+                } else {
+                    balanceEl.textContent = '₹0.00';
+                }
+            };
+            window.populateWallet = populateWallet; // Attach to window so module script can call it.
+
             const showAddMoneyBtn = document.getElementById('show-add-money-btn');
             const addMoneySection = document.getElementById('add-money-section');
             const confirmAddMoneyBtn = document.getElementById('confirm-add-money-btn');
@@ -4156,31 +4696,103 @@
             }
 
             if (confirmAddMoneyBtn) {
-                confirmAddMoneyBtn.addEventListener('click', () => {
+                confirmAddMoneyBtn.addEventListener('click', async () => {
                     const amount = addMoneyAmountInput ? addMoneyAmountInput.value : 0;
+
+                    if (!window.currentUserId || !window.db) {
+                        showAlert('Not Logged In', 'You must be logged in to add money.', 'error');
+                        return;
+                    }
+
                     if (amount > 0) {
-                        // Using a simple placeholder instead of alert()
                         const originalText = confirmAddMoneyBtn.textContent;
                         confirmAddMoneyBtn.textContent = `Processing ₹${amount}...`;
+                        confirmAddMoneyBtn.disabled = true;
 
-                        setTimeout(() => {
-                            alert(`Proceeding to payment gateway for ₹${amount}. \n(This is a demo - no real payment will be made.)`);
-                            confirmAddMoneyBtn.textContent = originalText;
-                            // In a real app, you'd redirect to a payment page here.
+                        try {
+                            const newBalance = (parseFloat(window.currentUserData.walletBalance) || 0) + parseFloat(amount);
+                            // --- FIX: Use window.fs.doc and window.fs.updateDoc ---
+                            const userDocRef = window.fs.doc(window.db, 'artifacts', window.appId, 'users', window.currentUserId);
+                            await window.fs.updateDoc(userDocRef, {
+                                walletBalance: newBalance
+                            });
 
+                            // Manually update global state so UI refreshes
+                            window.currentUserData.walletBalance = newBalance;
+                            populateWallet(); // Re-render wallet UI
+                            
+                            showAlert('Success', `₹${amount} added to your wallet.`, 'success');
+
+                        } catch (error) {
+                            console.error("Error adding money:", error);
+                            showAlert('Error', 'Could not add money. Please try again.', 'error');
+                        } finally {
                             // Reset
+                            confirmAddMoneyBtn.textContent = originalText;
+                            confirmAddMoneyBtn.disabled = false;
                             if (addMoneyAmountInput) addMoneyAmountInput.value = '';
                             if (addMoneySection) addMoneySection.style.display = 'none';
                             if (showAddMoneyBtn) showAddMoneyBtn.innerHTML = '<i class="fas fa-plus-circle"></i> Add Money';
-                        }, 1500);
+                        }
 
                     } else {
-                        alert("Please enter a valid amount.");
+                        showAlert('Invalid Amount', 'Please enter a valid amount.', 'warning');
                         if (addMoneyAmountInput) addMoneyAmountInput.focus();
                     }
                 });
             }
             // --- END Wallet Modal Logic ---
+
+            // --- NEW: Rides Modal Logic ---
+            const populateRides = async () => {
+                const rideListEl = document.querySelector('.ride-history-list');
+                if (!rideListEl) return;
+
+                if (!window.currentUserId) {
+                    rideListEl.innerHTML = '<li><p>Please log in to see your ride history.</p></li>';
+                    return;
+                }
+
+                rideListEl.innerHTML = '<li><p>Loading rides...</p></li>';
+                try {
+                    // --- FIX: Use window.fs.collection, .query, and .getDocs ---
+                    const ridesColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'users', window.currentUserId, 'rides');
+                    const querySnapshot = await window.fs.getDocs(window.fs.query(ridesColRef)); // Don't order, sort in JS
+
+                    if (querySnapshot.empty) {
+                        rideListEl.innerHTML = '<li><p>You have no ride history.</p></li>';
+                        return;
+                    }
+
+                    let rides = [];
+                    querySnapshot.forEach(doc => rides.push({ id: doc.id, ...doc.data() }));
+                    
+                    // Sort by date in JS (newest first)
+                    rides.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                    rideListEl.innerHTML = ''; // Clear loading
+                    rides.forEach(ride => {
+                        const li = document.createElement('li');
+                        li.className = 'ride-item';
+                        li.innerHTML = `
+                            <div class="icon"><i class="fas ${ride.type === 'motorcycle' ? 'fa-motorcycle' : 'fa-car-side'}"></i></div>
+                            <div class="ride-details">
+                                <p>${ride.location || 'Unknown Ride'}</p>
+                                <span>${new Date(ride.date).toLocaleString()}</span>
+                                <span>Driver: ${ride.driver || 'N/A'}</span>
+                            </div>
+                            <div class="ride-price">₹${ride.price || 0}</div>
+                        `;
+                        rideListEl.appendChild(li);
+                    });
+
+                } catch (error) {
+                    console.error("Error fetching rides:", error);
+                    rideListEl.innerHTML = '<li><p>Could not load ride history.</p></li>';
+                }
+            };
+            window.populateRides = populateRides; // Attach to window
+            // --- END Rides Modal Logic ---
 
 
             // --- NEW: Safety Modal Button Logic ---
@@ -4189,15 +4801,28 @@
 
             if (shareRideBtn) {
                 shareRideBtn.addEventListener('click', () => {
-                    // This is a demo. In a real app, this would open a "share" dialog.
-                    alert("Share My Ride: \nYour live location will be shared with your trusted contacts. (Demo)");
+                    showAlert('Share My Ride (Demo)', 'Your live location will be shared with your trusted contacts.', 'info');
                 });
             }
 
             if (sosBtn) {
-                sosBtn.addEventListener('click', () => {
-                    // This is a demo. In a real app, this would confirm and alert authorities.
-                    alert("EMERGENCY SOS: \nConnecting to emergency services and sharing your location. (Demo)");
+                sosBtn.addEventListener('click', async () => {
+                    showAlert('Emergency SOS', 'Connecting to emergency services and sharing your location...', 'error');
+                
+                    if (window.currentUserId && window.db) {
+                        try {
+                            // Log this event to a new collection
+                            // --- FIX: Use window.fs.addDoc and window.fs.collection ---
+                            await window.fs.addDoc(window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'sosEvents'), {
+                                userId: window.currentUserId,
+                                name: window.currentUserData.name || 'Unknown',
+                                role: window.currentUserData.role || 'unknown',
+                                timestamp: new Date().toISOString()
+                            });
+                        } catch (error) {
+                            console.error("Failed to log SOS event:", error);
+                        }
+                    }
                 });
             }
             // --- END Safety Modal Logic ---
@@ -4213,13 +4838,9 @@
 
             const copyReferralCode = () => {
                 if (!referralCodeInput) return;
-
-                // --- Simple clipboard copy ---
-                // We use this method for iframe compatibility
                 try {
                     referralCodeInput.select();
                     document.execCommand('copy');
-
                     const originalIcon = referralCopyBtn.innerHTML;
                     referralCopyBtn.innerHTML = '<i class="fas fa-check"></i>';
                     setTimeout(() => {
@@ -4227,7 +4848,7 @@
                     }, 2000);
                 } catch (err) {
                     console.error('Failed to copy code: ', err);
-                    alert("Failed to copy. Please copy it manually.");
+                    showAlert('Copy Failed', 'Failed to copy. Please copy it manually.', 'error');
                 }
             };
 
@@ -4252,46 +4873,106 @@
                 referModalTrigger.addEventListener('click', updateShareLinks);
             }
 
-            // Handle reward "Claim" buttons
-            document.querySelectorAll('.claim-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    if (btn.disabled) return;
+            // --- NEW: Rewards Population & Claim Logic ---
+            const populateRewards = async () => {
+                const rewardsListEl = document.querySelector('.rewards-list');
+                if (!rewardsListEl) return;
 
-                    const originalText = btn.textContent;
-                    btn.textContent = 'Claimed!';
-                    btn.disabled = true;
-                    btn.style.background = '#ccc';
-                    btn.style.cursor = 'not-allowed';
+                if (!window.currentUserId) {
+                    rewardsListEl.innerHTML = '<li><p>Please log in to see your rewards.</p></li>';
+                    return;
+                }
 
-                    // In a real app, you'd update this in Firestore
+                rewardsListEl.innerHTML = '<li><p>Loading rewards...</p></li>';
+                try {
+                    // --- FIX: Use window.fs.collection, .query, and .getDocs ---
+                    const rewardsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'users', window.currentUserId, 'rewards');
+                    const querySnapshot = await window.fs.getDocs(window.fs.query(rewardsColRef)); // No ordering
 
-                    setTimeout(() => {
-                        alert("Reward has been claimed! (This is a demo)");
-                    }, 300);
+                    if (querySnapshot.empty) {
+                        rewardsListEl.innerHTML = '<li><p>You have no rewards yet.</p></li>';
+                        return;
+                    }
+
+                    let rewards = [];
+                    querySnapshot.forEach(doc => rewards.push({ id: doc.id, ...doc.data() }));
+                    
+                    rewardsListEl.innerHTML = ''; // Clear loading
+                    rewards.forEach(reward => {
+                        const li = document.createElement('li');
+                        li.className = 'reward-item';
+                        li.innerHTML = `
+                            <div class="icon"><i class="fas ${reward.icon || 'fa-gift'}"></i></div>
+                            <div class="details">
+                                <h4>${reward.title}</h4>
+                                <p>${reward.description}</p>
+                            </div>
+                            <button class="claim-btn" data-id="${reward.id}" ${reward.claimed ? 'disabled' : ''}>
+                                ${reward.claimed ? 'Claimed' : 'Claim'}
+                            </button>
+                        `;
+                        rewardsListEl.appendChild(li);
+                    });
+                    
+                    // Add event listeners to the new buttons
+                    attachClaimButtonListeners();
+
+                } catch (error) {
+                    console.error("Error fetching rewards:", error);
+                    rewardsListEl.innerHTML = '<li><p>Could not load rewards.</p></li>';
+                }
+            };
+            window.populateRewards = populateRewards; // Attach to window
+
+            const attachClaimButtonListeners = () => {
+                document.querySelectorAll('.claim-btn').forEach(btn => {
+                    // Remove old listener to prevent duplicates
+                    const newBtn = btn.cloneNode(true);
+                    btn.parentNode.replaceChild(newBtn, btn);
+                    
+                    newBtn.addEventListener('click', async () => {
+                        if (newBtn.disabled) return;
+                        const rewardId = newBtn.dataset.id;
+                        if (!window.currentUserId || !rewardId || !window.db) return;
+
+                        newBtn.disabled = true;
+                        newBtn.textContent = 'Claiming...';
+
+                        try {
+                            // --- FIX: Use window.fs.doc and window.fs.updateDoc ---
+                            const rewardDocRef = window.fs.doc(window.db, 'artifacts', window.appId, 'users', window.currentUserId, 'rewards', rewardId);
+                            await window.fs.updateDoc(rewardDocRef, {
+                                claimed: true
+                            });
+
+                            newBtn.textContent = 'Claimed!';
+                            newBtn.style.background = '#ccc';
+                            newBtn.style.cursor = 'not-allowed';
+                            showAlert('Success', 'Reward has been claimed!', 'success');
+
+                        } catch (error) {
+                            console.error("Error claiming reward:", error);
+                            showAlert('Error', 'Could not claim reward. Please try again.', 'error');
+                            newBtn.disabled = false;
+                            newBtn.textContent = 'Claim';
+                        }
+                    });
                 });
-            });
+            };
             // --- END Refer & Rewards Logic ---
 
 
-            // --- Registration Modal Logic ---
-            // MOVED to the top <script type="module"> block to share with Firebase
-            /*
-            const regModal = document.getElementById('reg-modal');
-            const regOpenBtns = document.querySelectorAll('.reg-btn');
-            const regCloseBtn = regModal.querySelector('.reg-form-close');
-            ...
-            */
+            // --- Registration Modal Logic (MOVED to top script) ---
+
 
             // --- NEW Map Preview Logic ---
             const previewDriverMapBtn = document.getElementById('previewDriverMapBtn');
-            const driverMapContainer = document.getElementById('driver-map-container'); // MOVED TO TOP SCRIPT
+            const driverMapContainer = document.getElementById('driver-map-container');
             const driverDestinationInput = document.getElementById('driverDestination');
 
             const previewEmergencyMapBtn = document.getElementById('previewEmergencyMapBtn');
-            const emergencyMapContainer = document.getElementById('emergency-map-container'); // MOVED TO TOP SCRIPT
+            const emergencyMapContainer = document.getElementById('emergency-map-container');
             const emergencyDestinationInput = document.getElementById('emergencyDestination');
-
-            // Note: driverMapContainer and emergencyMapContainer are now defined in the top module script
 
             const displayMap = (container, location) => {
                 if (!container) return; // Guard against null
@@ -4557,7 +5238,7 @@
                     <a href="#" class="social-icon" aria-label="Follow us on World Wide Web">🌐</a>
                     <a href="#" class="social-icon" aria-label="Follow us on Facebook">📘</a>
                     <a href="#" class="social-icon" aria-label="Follow us on Twitter">🐦</a>
-                    <a href="#" class="social-icon" aria-label="Follow us on LinkedIn">💼</a>
+                    <a href="#" classs="social-icon" aria-label="Follow us on LinkedIn">💼</a>
                 </div>
             </div>
 
@@ -4595,12 +5276,10 @@
                 width: 0;
                 height: 1px;
                 background: var(--accent-color);
-                transition: width 0.3s;
-                position: absolute;
-                bottom: -2px;
-                left: 0;
+                transition: width 0.3s ease; /* Completed this line */
             }
 
+            /* Added the rest of the styles */
             .footer-link:hover {
                 color: var(--accent-color);
             }
@@ -4615,37 +5294,35 @@
             }
 
             .contact-list-link strong {
-                color: var(--accent-color);
+                color: #fff;
                 font-weight: 600;
             }
 
-            .contact-list-link {
-                color: #ccc;
-            }
-
-            .contact-list-link:hover {
-                color: #fff;
-            }
-
-            .contact-list-link:hover strong {
-                color: var(--accent-hover);
-            }
-
             .social-icon {
-                font-size: 1.8em;
-                margin: 0 10px;
-                color: #ccc;
+                color: #fff;
+                font-size: 1.5em;
+                margin-right: 15px;
                 text-decoration: none;
                 transition: color 0.3s, transform 0.3s;
+                display: inline-block;
             }
 
             .social-icon:hover {
                 color: var(--accent-color);
-                transform: scale(1.2);
+                transform: scale(1.1);
+            }
+
+            .back-to-top-btn:hover {
+                background-color: var(--accent-hover);
+                box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+                transform: translateY(-2px);
             }
         </style>
-    </footer>
+    </footer> <!-- Added closing footer tag -->
 
-</body>
+</body> <!-- Added closing body tag -->
 
-</html>
+</html> <!-- Added closing html tag -->
+
+
+
