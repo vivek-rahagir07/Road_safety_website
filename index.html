@@ -4715,8 +4715,8 @@
         // --- but *inside* a DOMContentLoaded listener ---
 
         // --- Google Maps API Key ---
-        // TODO: Replace "YOUR_API_KEY_GOES_HERE" with your actual Google Maps API Key
-        const GOOGLE_MAPS_API_KEY = "YOUR_API_KEY_GOES_HERE";
+        // API Key provided by the user.
+        const GOOGLE_MAPS_API_KEY = "AIzaSyAArI6WKeTuv8LlDzhKEJl4sGc3s4rKRE8";
 
         document.addEventListener('DOMContentLoaded', () => {
 
@@ -5572,7 +5572,7 @@
                     return;
                 }
 
-                if (GOOGLE_MAPS_API_KEY === "YOUR_API_KEY_GOES_HERE" || !GOOGLE_MAPS_API_KEY) {
+                if (GOOGLE_MAPS_API_KEY === "GOOGLE_MAPS_API_KEY" || !GOOGLE_MAPS_API_KEY) {
                     mapContainer.innerHTML = `
                         <div class="map-api-notice">
                             <i class="fas fa-key"></i>
@@ -6082,4 +6082,5 @@
 </body>
 
 </html>
+
 
