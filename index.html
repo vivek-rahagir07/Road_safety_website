@@ -148,6 +148,29 @@
         // --- FIX: Wait for DOM to be loaded before accessing elements ---
         document.addEventListener('DOMContentLoaded', () => {
 
+            // --- NEW: Define shield link and helper function globally (within DOMContentLoaded) ---
+            const womenShieldLink = document.getElementById('nav-women-shield-link');
+
+            const updateWomenShieldStatus = () => {
+                if (!womenShieldLink) return;
+
+                // Check auth status *without* relying on 'user' param from onAuthStateChanged
+                const isLoggedIn = window.auth.currentUser && !window.auth.currentUser.isAnonymous;
+                const shieldActive = window.currentUserData?.womenShieldActive === true;
+
+                if (isLoggedIn && shieldActive) {
+                    // User is logged in AND shield is active
+                    womenShieldLink.classList.remove('disabled');
+                    womenShieldLink.classList.add('women-shield-blinking'); 
+                } else {
+                    // User is logged out OR shield is not active
+                    womenShieldLink.classList.add('disabled');
+                    womenShieldLink.classList.remove('women-shield-blinking'); // Remove blink
+                    womenShieldLink.style.color = ''; // Let CSS class handle it
+                }
+            };
+            // --- END NEW ---
+
             // --- AUTHENTICATION LOGIC ---
 
             // Get elements for showing auth state
@@ -155,10 +178,7 @@
             const navUserInfo = document.getElementById('nav-user-info');
             const navUserPhoto = document.getElementById('nav-user-photo'); // <-- CHANGED from navUserInitial
             const navLogoutBtn = document.getElementById('nav-logout-btn');
-            const womenShieldLink = document.getElementById('nav-women-shield-link'); // <-- NEW
-
-            // --- FIX 2: Moved these definitions up ---
-            // Get elements for dynamic content
+            // const womenShieldLink = document.getElementById('nav-women-shield-link'); // <-- MOVED
             const communityLoginPrompt = document.getElementById('community-login-prompt');
             const communityRegisterView = document.getElementById('community-register-view');
             const communityProfileView = document.getElementById('community-profile-view');
@@ -189,19 +209,7 @@
             // Listen for authentication state changes (login/logout)
             onAuthStateChanged(auth, async (user) => {
 
-                // --- NEW: Add click listener for Women Shield ---
-                // We set the listener *once* and just toggle behavior
-                if (womenShieldLink && !womenShieldLink.listenerAdded) {
-                    womenShieldLink.addEventListener('click', (e) => {
-                        if (womenShieldLink.classList.contains('disabled')) {
-                            e.preventDefault();
-                            // Use the global showAlert
-                            window.showAlert('Login Required', 'You must be signed up and logged in to access the Women Shield.', 'warning');
-                        }
-                    });
-                    womenShieldLink.listenerAdded = true; // Flag to prevent multiple listeners
-                }
-                // --- END NEW ---
+                // --- REMOVED: Old click listener setup for Women Shield ---
 
                 if (user) {
                     // User is signed in
@@ -318,7 +326,7 @@
                         window.currentUserData = { role: 'guest' }; // Set fallback
                     }
 
-                    // --- NEW LOGIC FOR PROFILE PHOTO ---
+                    // --- NEW: Populate Profile Dropdown ---
                     if (navUserPhoto) {
                         if (photoUrl) {
                             navUserPhoto.src = photoUrl;
@@ -333,22 +341,8 @@
                     }
                     // --- END NEW LOGIC ---
 
-                    // --- NEW: Enable/Disable Women Shield based on gender ---
-                    const userGender = window.currentUserData?.gender; // Get gender from global data
-                    if (user.isAnonymous || userGender !== 'female') {
-                        console.log(`User is anonymous or not female (gender: ${userGender}), disabling Women Shield.`);
-                        if (womenShieldLink) {
-                            womenShieldLink.classList.add('disabled');
-                            womenShieldLink.style.color = ''; // Let CSS class handle it
-                        }
-                    } else {
-                        // User is signed up AND is female
-                        console.log('User is signed up and female, enabling Women Shield.');
-                        if (womenShieldLink) {
-                            womenShieldLink.classList.remove('disabled');
-                            womenShieldLink.style.color = 'var(--accent-color)'; // Restore color
-                        }
-                    }
+                    // --- NEW: Call helper function to set Women Shield status ---
+                    updateWomenShieldStatus();
                     // --- END NEW ---
 
                     // --- NEW LOGIC TO SHOW CORRECT COMMUNITY VIEW ---
@@ -454,6 +448,10 @@
 
                     window.currentUserId = null; // <-- NEW
                     window.currentUserData = {}; // <-- NEW
+
+                    // --- NEW: Call helper function to set Women Shield status ---
+                    updateWomenShieldStatus();
+                    // --- END NEW ---
 
                     // --- NEW: Reset Profile Dropdown ---
                     if (profileDropdownName) profileDropdownName.textContent = 'Guest';
@@ -818,10 +816,18 @@
                             vehicleModel: vehicleModel,
                             baseLocation: baseLocation, // <-- MODIFIED: Was 'destination'
                             onDuty: false, // <-- NEW
-                            createdAt: new Date().toISOString() // Or update, but new timestamp is fine
+                            createdAt: new Date().toISOString(), // Or update, but new timestamp is fine
+                            womenShieldActive: gender === 'female' // <-- ADDED
                         };
 
                         await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData, { merge: true });
+
+                        // --- NEW: Update local data and UI immediately ---
+                        if (window.currentUserData) { // Check if currentUserData exists
+                            window.currentUserData.womenShieldActive = (gender === 'female');
+                        }
+                        updateWomenShieldStatus();
+                        // --- END NEW ---
 
                         // --- NEW: Reset file and preview ---
                         window.driverPhotoFile = null; // <-- Use global file var
@@ -898,10 +904,18 @@
                             gender: gender, // <-- NEW
                             photoUrl: photoUrl, // <-- CHANGED from photoFilename
                             defaultLocation: travelerLocation, // <-- MODIFIED: Kept as defaultLocation
-                            createdAt: new Date().toISOString()
+                            createdAt: new Date().toISOString(),
+                            womenShieldActive: gender === 'female' // <-- ADDED
                         };
 
                         await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData, { merge: true });
+
+                        // --- NEW: Update local data and UI immediately ---
+                        if (window.currentUserData) { // Check if currentUserData exists
+                            window.currentUserData.womenShieldActive = (gender === 'female');
+                        }
+                        updateWomenShieldStatus();
+                        // --- END NEW ---
 
                         // --- NEW: Reset file and preview ---
                         window.travelerPhotoFile = null; // <-- Use global file var
@@ -983,10 +997,18 @@
                             baseLocation: baseLocation, // <-- MODIFIED: Was 'destination'
                             onDuty: false, // <-- NEW
                             bestRoute: formData.has('bestRoute'),
-                            createdAt: new Date().toISOString()
+                            createdAt: new Date().toISOString(),
+                            womenShieldActive: gender === 'female' // <-- ADDED
                         };
 
                         await setDoc(doc(db, 'artifacts', appId, 'users', userId), serviceData, { merge: true });
+
+                        // --- NEW: Update local data and UI immediately ---
+                        if (window.currentUserData) { // Check if currentUserData exists
+                            window.currentUserData.womenShieldActive = (gender === 'female');
+                        }
+                        updateWomenShieldStatus();
+                        // --- END NEW ---
 
                         // --- NEW: Reset file and preview ---
                         window.emergencyPhotoFile = null; // <-- Use global file var
@@ -1083,18 +1105,18 @@
             color: white;
         }
 
-        .gender-btn[data-value="male"].active {
-            background: var(--traveler-color);
-            /* Blue for male */
-            box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+        /* --- NEW: Blinking Animation for Women Shield --- */
+        @keyframes blink-animation {
+            0% { opacity: 1; color: var(--accent-color); }
+            50% { opacity: 0.3; color: #f39c12; }
+            100% { opacity: 1; color: var(--accent-color); }
         }
-
-        .gender-btn[data-value="female"].active {
-            background: var(--primary-color);
-            /* Red/Pink for female */
-            box-shadow: 0 0 10px rgba(255, 77, 77, 0.3);
+        
+        .nav-links a.women-shield-blinking:not(.disabled) {
+            animation: blink-animation 1.5s infinite;
+            color: var(--accent-color) !important;
+            cursor: pointer;
         }
-
         /* --- END NEW --- */
 
         * {
@@ -1701,13 +1723,25 @@
             pointer-events: none;
         }
 
-        /* Show on hover */
+        /* --- MODIFICATION: Show on .active class, NOT on hover --- */
+        /* Show on hover - REMOVED
         .nav-links li.dropdown:hover .dropdown-menu {
             display: block;
             opacity: 1;
             transform: translateY(0);
             pointer-events: auto;
         }
+        */
+
+        /* NEW: Show when parent LI has .active class */
+        .nav-links li.dropdown.active > .dropdown-menu {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        /* --- END MODIFICATION --- */
+
 
         /* Submenu item styling */
         .nav-links li.dropdown .dropdown-menu li {
@@ -1746,13 +1780,19 @@
 
         /* This rule (which you already have) is crucial: */
         /* It stops this CSS hover from opening the JS-controlled profile menu */
+        /* --- MODIFICATION: This rule is no longer needed as hover is disabled --- */
+        /*
         .nav-links li.dropdown:hover .dropdown-menu#profile-dropdown-menu {
             display: none !important;
         }
+        */
+        /* --- END MODIFICATION --- */
+
 
         /* ...but allows it to stay open if JS added .active */
-        .nav-links li.dropdown:hover .dropdown-menu#profile-dropdown-menu.active {
-            display: block !important;
+        /* --- MODIFICATION: This rule is now covered by the main .active rule, but let's keep it for specificity --- */
+        .nav-links li.dropdown.active > .dropdown-menu#profile-dropdown-menu.active {
+            display: block !important; /* Keep !important just in case */
         }
 
         /* --- END NEW Desktop Dropdown Styles --- */
@@ -3997,6 +4037,16 @@
             }
 
             /* Mobile Dropdowns */
+            /* --- NEW: Add caret rotation on mobile --- */
+            .nav-links li.dropdown > a .fa-caret-down {
+                transition: transform 0.3s ease;
+            }
+    
+            .nav-links li.dropdown.active > a .fa-caret-down {
+                transform: rotate(180deg);
+            }
+            /* --- END NEW --- */
+            
             .nav-links li.dropdown .dropdown-menu {
                 display: none;
                 /* Start hidden */
@@ -5274,28 +5324,85 @@
         document.addEventListener('DOMContentLoaded', () => {
 
             // --- FIX 1: This logic was moved from the hero-modal div ---
-            // --- NEW PROFILE MENU CLICK LOGIC ---
+            // --- PROFILE MENU CLICK LOGIC (MODIFIED) ---
             const profileMenuTrigger = document.getElementById('nav-user-info');
             const profileMenu = document.getElementById('profile-dropdown-menu');
 
             if (profileMenuTrigger && profileMenu) {
                 profileMenuTrigger.addEventListener('click', (e) => {
                     e.stopPropagation(); // Stop click from bubbling to the document
-                    profileMenu.classList.toggle('active');
+                    
+                    const wasActive = profileMenu.classList.contains('active');
+
+                    // --- NEW: Close other dropdowns ---
+                    document.querySelectorAll('.nav-links > li.dropdown.active').forEach(li => {
+                        li.classList.remove('active');
+                    });
+                    // --- END NEW ---
+                    
+                    if (!wasActive) {
+                        profileMenu.classList.add('active'); // Use add, not toggle
+                    }
                 });
             }
+            // --- END PROFILE MENU CLICK LOGIC ---
+            // --- END FIX 1 ---
 
-            // Listener to close menu when clicking outside
+            // --- NEW: Click-to-toggle for main nav dropdowns (Desktop) ---
+            // Get all dropdown toggles EXCEPT the profile one
+            const mainDropdownLinks = document.querySelectorAll('.nav-links > li.dropdown > a'); 
+
+            mainDropdownLinks.forEach(link => {
+                // Check if it's one of the links that should toggle a menu
+                // And it's NOT the profile trigger
+                const parentLi = link.parentElement;
+                if (parentLi.querySelector('.dropdown-menu') && parentLi.id !== 'nav-user-info') {
+                    
+                    link.addEventListener('click', (e) => {
+                        
+                        // Only run this click-toggle logic on desktop
+                        if (window.innerWidth > 992) {
+                            e.preventDefault();
+                            e.stopPropagation(); // Prevent document click listener from firing immediately
+            
+                            const wasActive = parentLi.classList.contains('active');
+            
+                            // Close all *other* dropdowns (including profile)
+                            document.querySelectorAll('.nav-links > li.dropdown.active').forEach(li => {
+                                li.classList.remove('active');
+                            });
+                             if (profileMenu) profileMenu.classList.remove('active');
+            
+                            // If it wasn't already active, open it
+                            if (!wasActive) {
+                                parentLi.classList.add('active');
+                            }
+                        }
+                        // On mobile, the mobile menu logic (further down) will handle it
+                    });
+                }
+            });
+            // --- END NEW ---
+
+
+            // --- MODIFIED: Combined Document Click Listener to close all menus ---
             document.addEventListener('click', (e) => {
+                // Close Profile Menu
                 if (profileMenu && profileMenu.classList.contains('active')) {
-                    // Check if the click was outside the menu AND outside the trigger
                     if (!profileMenu.contains(e.target) && !profileMenuTrigger.contains(e.target)) {
                         profileMenu.classList.remove('active');
                     }
                 }
+            
+                // Close Main Nav Dropdowns
+                document.querySelectorAll('.nav-links > li.dropdown.active').forEach(li => {
+                    // Check if the click was outside this dropdown AND it's not the profile one
+                    if (li.id !== 'nav-user-info' && !li.contains(e.target)) {
+                        li.classList.remove('active');
+                    }
+                });
             });
-            // --- END NEW PROFILE MENU CLICK LOGIC ---
-            // --- END FIX 1 ---
+            // --- END MODIFICATION ---
 
             // --- NEW: Custom Alert Modal Logic ---
             const alertModal = document.getElementById('custom-alert-modal');
@@ -5531,7 +5638,18 @@
                     // Only run this logic if we are in mobile view
                     if (window.innerWidth <= 992) {
                         e.preventDefault(); // Prevent link from navigating
-                        link.parentElement.classList.toggle('active');
+                        const parentLi = link.parentElement; // <-- Get parent LI
+                        const wasActive = parentLi.classList.contains('active'); // <-- Check if it was active
+
+                        // --- NEW: Close other active dropdowns ---
+                        document.querySelectorAll('#nav-menu-container li.dropdown.active').forEach(otherLi => {
+                            otherLi.classList.remove('active');
+                        });
+                        // --- END NEW ---
+
+                        if (!wasActive) {
+                            parentLi.classList.add('active'); // <-- Toggle active on LI
+                        }
                     }
                 });
             });
@@ -6737,4 +6855,6 @@
 
         }); // --- End of DOMContentLoaded ---
     </script>
+
+
 
