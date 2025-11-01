@@ -235,6 +235,10 @@
                             userData = userDoc.data(); // --- FIX 3: Assign userData here ---
                             userRole = userData.role || 'unknown';
 
+                            // --- NEW FIX: Check if gender is missing for an existing user ---
+                            const isProfileIncomplete = (userRole !== 'guest' && userRole !== 'unknown' && typeof userData.gender === 'undefined');
+                            // --- END NEW FIX ---
+
                             // Get name based on role
                             if (userRole === 'driver') userName = userData.name || formatEmailAsName(user.email);
                             else if (userRole === 'traveler') userName = userData.name || formatEmailAsName(user.email);
@@ -353,8 +357,9 @@
                     if (emergencyActions) emergencyActions.style.display = 'none';
                     if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'none';
 
-                    if (userRole === 'driver' || userRole === 'traveler' || userRole === 'emergency') {
-                        // User is logged in AND has a role
+                    // --- MODIFIED: Added check for 'isProfileIncomplete' ---
+                    if ( (userRole === 'driver' || userRole === 'traveler' || userRole === 'emergency') && !isProfileIncomplete ) {
+                        // User is logged in AND has a role AND profile is complete
                         communityLoginPrompt.style.display = 'none';
                         communityRegisterView.style.display = 'none';
                         communityProfileView.style.display = 'block';
@@ -413,14 +418,22 @@
 
                     } else {
                         // User is logged in but has NO role (e.g., 'unknown' or 'guest')
+                        // OR user HAS a role but is missing gender (isProfileIncomplete)
                         communityLoginPrompt.style.display = 'none';
                         communityRegisterView.style.display = 'block'; // Show role selection
                         communityProfileView.style.display = 'none';
                         if (navUserInfo) navUserInfo.className = `dropdown profile-role-${userRole}`; // <!-- ADDED LINE -->
 
                         // Update titles to prompt for profile completion
-                        communityRegisterTitle.innerHTML = '<i class="fas fa-user-plus"></i> Complete Your Profile';
-                        communityRegisterSubtitle.textContent = 'You are logged in. Please select your role in the community to continue.';
+                        // --- MODIFIED: Check if profile is incomplete ---
+                        if (isProfileIncomplete) {
+                            communityRegisterTitle.innerHTML = '<i class="fas fa-user-edit"></i> Update Your Profile';
+                            communityRegisterSubtitle.textContent = 'Please update your profile by selecting your role and gender to continue.';
+                        } else {
+                            communityRegisterTitle.innerHTML = '<i class="fas fa-user-plus"></i> Complete Your Profile';
+                            communityRegisterSubtitle.textContent = 'You are logged in. Please select your role in the community to continue.';
+                        }
+                        // --- END MODIFICATION ---
                     }
 
                     // --- NEW: Populate Modals ---
@@ -6855,6 +6868,7 @@
 
         }); // --- End of DOMContentLoaded ---
     </script>
+
 
 
 
