@@ -1655,6 +1655,95 @@
         /* --- END NEW Profile Dropdown Styles --- */
 
 
+        /* --- NEW: Desktop Dropdown Styles --- */
+        /* Make sure parent is relative */
+        .nav-links li.dropdown {
+            position: relative;
+        }
+
+        /* Style for the dropdown menu itself */
+        .nav-links li.dropdown .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #fff;
+            /* Light background for submenus */
+            border-radius: 8px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            min-width: 280px;
+            /* Wider for content */
+            margin-top: 10px;
+            /* Add some space */
+            z-index: 2000;
+            overflow: hidden;
+            /* For border-radius */
+
+            /* Animation */
+            transform-origin: top left;
+            transition: all 0.2s ease-out;
+            opacity: 0;
+            transform: translateY(10px);
+            pointer-events: none;
+        }
+
+        /* Show on hover */
+        .nav-links li.dropdown:hover .dropdown-menu {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        /* Submenu item styling */
+        .nav-links li.dropdown .dropdown-menu li {
+            width: 100%;
+            margin: 0;
+            /* Reset */
+            padding: 0;
+            /* Reset */
+            list-style: none;
+            /* Reset */
+        }
+
+        .nav-links li.dropdown .dropdown-menu li a {
+            color: var(--secondary-color);
+            /* Dark text on light bg */
+            padding: 14px 20px;
+            /* Good padding */
+            width: 100%;
+            display: block;
+            /* Make it full width */
+            font-weight: 600;
+            /* Match parent */
+            gap: 10px;
+            /* Space for icons */
+        }
+
+        .nav-links li.dropdown .dropdown-menu li a::after {
+            /* Remove the main nav underline effect */
+            display: none;
+        }
+
+        .nav-links li.dropdown .dropdown-menu li a:hover {
+            background: #f5f5f5;
+            color: var(--primary-color);
+        }
+
+        /* This rule (which you already have) is crucial: */
+        /* It stops this CSS hover from opening the JS-controlled profile menu */
+        .nav-links li.dropdown:hover .dropdown-menu#profile-dropdown-menu {
+            display: none !important;
+        }
+
+        /* ...but allows it to stay open if JS added .active */
+        .nav-links li.dropdown:hover .dropdown-menu#profile-dropdown-menu.active {
+            display: block !important;
+        }
+
+        /* --- END NEW Desktop Dropdown Styles --- */
+
+
         /* --- NEW: Generic Profile Modal Styles --- */
         .profile-modal-overlay {
             position: fixed;
@@ -3798,7 +3887,172 @@
             /* This pushes it to the bottom */
         }
 
-        /* === END NEW STICKY FOOTER STYLES === */
+        /* --- NEW: Mobile Menu Styles --- */
+        .mobile-menu-toggle {
+            display: none;
+            /* Hidden on desktop */
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.8em;
+            cursor: pointer;
+            z-index: 2001;
+            /* Above nav links */
+        }
+
+        @media (max-width: 992px) {
+            nav {
+                padding: 1em 1.5em;
+                /* Adjust padding for mobile */
+            }
+
+            .nav-title {
+                font-size: 1.5em;
+                /* Smaller title */
+            }
+
+            .mobile-menu-toggle {
+                display: block;
+                /* Show hamburger button */
+            }
+
+            #nav-menu-container {
+                display: none;
+                /* Hide menu container by default */
+                position: absolute;
+                top: 100%;
+                /* Position below nav */
+                left: 0;
+                width: 100%;
+                background: var(--secondary-color);
+                /* Dark bg for mobile menu */
+                padding: 1em;
+                box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
+                max-height: calc(100vh - 70px);
+                /* Full height minus nav */
+                overflow-y: auto;
+                z-index: 2000;
+
+                /* Animation */
+                animation: slideDown 0.3s ease-out;
+            }
+
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    transform: translateY(-20px);
+                }
+
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            #nav-menu-container.active {
+                display: block;
+                /* Show when active */
+            }
+
+            .nav-links {
+                flex-direction: column;
+                /* Stack links vertically */
+                gap: 0;
+                /* Remove desktop gap */
+            }
+
+            .nav-links li {
+                width: 100%;
+            }
+
+            .nav-links a {
+                padding: 1em;
+                /* Full-width touch targets */
+                border-bottom: 1px solid #444;
+                /* Separator */
+            }
+
+            .nav-links a::after {
+                display: none;
+                /* No underlines on mobile */
+            }
+
+            .nav-links a:hover {
+                background: #333;
+                color: var(--primary-color);
+            }
+
+            /* Mobile Dropdowns */
+            .nav-links li.dropdown .dropdown-menu {
+                display: none;
+                /* Start hidden */
+                position: static;
+                /* Not absolute */
+                width: 100%;
+                background: #1a1a1a;
+                /* Even darker */
+                box-shadow: none;
+                border-radius: 0;
+                margin-top: 0;
+                padding-left: 1em;
+                /* Indent submenu */
+                opacity: 1;
+                /* Reset for mobile */
+                transform: none;
+                /* Reset for mobile */
+                pointer-events: auto;
+                /* Reset for mobile */
+                max-height: 0;
+                /* Use max-height for animation */
+                overflow: hidden;
+                transition: max-height 0.3s ease-out;
+            }
+
+            .nav-links li.dropdown.active .dropdown-menu {
+                display: block;
+                /* Show when parent is active */
+                max-height: 500px;
+                /* Animate open */
+            }
+
+            .nav-links li.dropdown .dropdown-menu li a {
+                color: #ddd;
+                padding: 0.8em 1em;
+                border-bottom: 1px solid #333;
+            }
+
+            .nav-links li.dropdown .dropdown-menu li a:hover {
+                color: var(--primary-color);
+            }
+
+            /* Mobile Auth Links */
+            #nav-auth-links {
+                flex-direction: column;
+                padding: 1em;
+                gap: 1em;
+                border-top: 1px solid #444;
+            }
+
+            /* Mobile Profile Dropdown */
+            #nav-user-info {
+                padding: 1em;
+                border-top: 1px solid #444;
+                justify-content: space-between;
+            }
+
+            .nav-links li.dropdown:hover .dropdown-menu {
+                display: none;
+                /* Disable hover on mobile */
+            }
+
+            .nav-links li.dropdown.active .dropdown-menu {
+                display: block;
+                /* Show on click */
+            }
+        }
+
+        /* --- END NEW Mobile Menu Styles --- */
+
 
         @media print {
             body>*:not(#certificate-modal) {
@@ -4044,9 +4298,17 @@
                 <!-- === END NEW MENU === -->
             </li>
         </ul>
-    </nav>
+        <!-- === END NEW WRAPPER === -->
+    </div>
 
-    <header id="home">
+    <!-- === NEW: Mobile Menu Toggle Button === -->
+    <button id="mobile-menu-toggle" class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+        <i class="fas fa-bars"></i>
+    </button>
+    <!-- === END NEW === -->
+</nav>
+
+<header id="home">
         <main>
             <h1>Drive Smart. Stay Safe.</h1>
             <p>Your journey is precious. Awareness is your best defense.</p>
@@ -5218,6 +5480,49 @@
             if (sidebarToggle) sidebarToggle.addEventListener('click', toggleSidebar);
             if (sidebarClose) sidebarClose.addEventListener('click', toggleSidebar);
             if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
+
+            // --- NEW: Mobile Menu Toggle Logic ---
+            const menuToggleBtn = document.getElementById('mobile-menu-toggle');
+            const menuContainer = document.getElementById('nav-menu-container');
+            const navLinks = document.querySelectorAll('#nav-menu-container a');
+            const dropdownLinks = document.querySelectorAll('#nav-menu-container li.dropdown > a');
+
+            if (menuToggleBtn && menuContainer) {
+                menuToggleBtn.addEventListener('click', () => {
+                    menuContainer.classList.toggle('active');
+                    const isExpanded = menuContainer.classList.contains('active');
+                    menuToggleBtn.setAttribute('aria-expanded', isExpanded);
+                    // Toggle icon
+                    menuToggleBtn.innerHTML = isExpanded ? '<i class="fas fa-times"></i>' : '<i class="fas fa-bars"></i>';
+                });
+            }
+
+            // Close menu when a link is clicked
+            navLinks.forEach(link => {
+                // Only add listener if it's NOT a dropdown toggle
+                if (!link.parentElement.classList.contains('dropdown')) {
+                    link.addEventListener('click', () => {
+                        if (menuContainer) menuContainer.classList.remove('active');
+                        if (menuToggleBtn) {
+                            menuToggleBtn.setAttribute('aria-expanded', 'false');
+                            menuToggleBtn.innerHTML = '<i class="fas fa-bars"></i>';
+                        }
+                    });
+                }
+            });
+
+            // Handle mobile dropdown clicks
+            dropdownLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    // Only run this logic if we are in mobile view
+                    if (window.innerWidth <= 992) {
+                        e.preventDefault(); // Prevent link from navigating
+                        link.parentElement.classList.toggle('active');
+                    }
+                });
+            });
+            // --- END NEW: Mobile Menu Toggle Logic ---
+
 
             // --- NEW: Password Validation UI Logic ---
             const signupPasswordInput = document.getElementById('signupPassword');
