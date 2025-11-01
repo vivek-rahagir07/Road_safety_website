@@ -434,6 +434,25 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* --- NEW: Blink Animation --- */
+        .blink-me {
+            /* Blinks the icon after verification */
+            animation: blinker 1.5s linear infinite;
+        }
+
+        @keyframes blinker {
+            0%, 100% {
+                opacity: 1;
+                color: var(--accent-color);
+            }
+            50% {
+                opacity: 0.3;
+                color: #fff; /* Blink to header color */
+            }
+        }
+        /* --- END Blink Animation --- */
+
         /* --- END Entry Shield --- */
 
         /* --- Simple Footer --- */
@@ -610,6 +629,24 @@
     <script>
         // --- Accordion Logic for Tips ---
         document.addEventListener('DOMContentLoaded', () => {
+
+            // --- NEW: Blink logic on load ---
+            // This checks if the user just completed verification
+            try {
+                const verificationStatus = sessionStorage.getItem('shieldVerification');
+                if (verificationStatus === 'verified') {
+                    const shieldIcon = document.querySelector('.page-header h1 i.fa-shield-alt');
+                    if (shieldIcon) {
+                        // Add the blink-me class to start the animation
+                        shieldIcon.classList.add('blink-me');
+                    }
+                    // Clear the flag so it doesn't blink on every page refresh
+                    sessionStorage.removeItem('shieldVerification');
+                }
+            } catch (e) {
+                console.error("Session storage is not available:", e);
+            }
+            // --- END NEW ---
             
             // --- NEW: Shield Modal Logic ---
             const shieldOverlay = document.getElementById('shield-overlay');
@@ -668,7 +705,13 @@
                     setTimeout(() => {
                         // Set a flag that verification is pending
                         // Using sessionStorage so it's temporary
-                        sessionStorage.setItem('shieldVerification', 'pending');
+                        // CHANGED: Set to 'verified' on success
+                        try {
+                            sessionStorage.setItem('shieldVerification', 'verified');
+                        } catch (e) {
+                            console.error("Session storage is not available:", e);
+                        }
+
 
                         shieldOverlay.style.opacity = '0';
                         // Hide the modal after the fade-out transition, then redirect
@@ -727,5 +770,6 @@
 </body>
 
 </html>
+
 
 
