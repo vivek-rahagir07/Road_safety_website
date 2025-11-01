@@ -120,6 +120,31 @@
         };
         // --- END NEW ---
 
+        // --- NEW: Password Validation Helper ---
+        const validatePassword = (password) => {
+            if (password.length < 8) {
+                return 'Password must be at least 8 characters long.';
+            }
+            // Check for at least one lowercase letter
+            if (!/[a-z]/.test(password)) {
+                return 'Password must contain at least one lowercase letter (a-z).';
+            }
+            // Check for at least one uppercase letter
+            if (!/[A-Z]/.test(password)) {
+                return 'Password must contain at least one uppercase letter (A-Z).';
+            }
+            // Check for at least one number
+            if (!/\d/.test(password)) {
+                return 'Password must contain at least one number (0-9).';
+            }
+            // Check for at least one special character
+            if (!/[^a-zA-Z0-9]/.test(password)) {
+                return 'Password must contain at least one special sign (e.g., !, @, #, $).';
+            }
+            return null; // Password is valid
+        };
+        // --- END NEW ---
+
         // --- FIX: Wait for DOM to be loaded before accessing elements ---
         document.addEventListener('DOMContentLoaded', () => {
 
@@ -621,13 +646,16 @@
                     const confirmPassword = signupForm.signupConfirmPassword.value;
                     if (signupError) signupError.style.display = 'none';
 
-                    if (password.length < 6) {
+                    // --- MODIFIED: New Password Validation ---
+                    const passwordError = validatePassword(password);
+                    if (passwordError) {
                         if (signupError) {
-                            signupError.textContent = 'Password must be at least 6 characters long.';
+                            signupError.textContent = passwordError;
                             signupError.style.display = 'block';
                         }
                         return;
                     }
+                    // --- END MODIFICATION ---
 
                     if (password !== confirmPassword) {
                         if (signupError) {
@@ -688,7 +716,7 @@
                     const formData = new FormData(driverForm);
                     const data = Object.fromEntries(formData.entries());
                     // --- REMOVED driverPhoto from data destructuring ---
-                    const { driverName, driverPhone, vehicleType, licensePlate, vehicleMake, vehicleModel, driverDestination } = data;
+                    const { driverName, driverPhone, vehicleType, licensePlate, vehicleMake, vehicleModel, baseLocation } = data; // <-- FIX: Changed 'driverDestination' to 'baseLocation'
 
                     try {
                         const userId = user.uid;
@@ -717,7 +745,7 @@
                             licensePlate: licensePlate,
                             vehicleMake: vehicleMake,
                             vehicleModel: vehicleModel,
-                            destination: driverDestination,
+                            baseLocation: baseLocation, // <-- MODIFIED: Was 'destination'
                             onDuty: false, // <-- NEW
                             createdAt: new Date().toISOString() // Or update, but new timestamp is fine
                         };
@@ -797,7 +825,7 @@
                             phone: travelerPhone,
                             role: 'traveler', // Set the role
                             photoUrl: photoUrl, // <-- CHANGED from photoFilename
-                            defaultLocation: travelerLocation,
+                            defaultLocation: travelerLocation, // <-- MODIFIED: Kept as defaultLocation
                             createdAt: new Date().toISOString()
                         };
 
@@ -850,7 +878,7 @@
                     const formData = new FormData(emergencyForm);
                     const data = Object.fromEntries(formData.entries());
                     // --- REMOVED servicePhoto from data destructuring ---
-                    const { serviceType, serviceId, serviceName, servicePhone, serviceVehicleId, serviceVehicleType, emergencyDestination } = data;
+                    const { serviceType, serviceId, serviceName, servicePhone, serviceVehicleId, serviceVehicleType, baseLocation } = data; // <-- MODIFIED: Was 'emergencyDestination'
 
                     try {
                         const userId = user.uid;
@@ -879,7 +907,7 @@
                             serviceId: serviceId,
                             vehicleId: serviceVehicleId,
                             vehicleType: serviceVehicleType,
-                            destination: emergencyDestination,
+                            baseLocation: baseLocation, // <-- MODIFIED: Was 'destination'
                             onDuty: false, // <-- NEW
                             bestRoute: formData.has('bestRoute'),
                             createdAt: new Date().toISOString()
@@ -2715,6 +2743,59 @@
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
         }
 
+        /* === NEW: Password Instructions Styles === */
+        .password-instructions {
+            display: block; /* MODIFIED: Was 'none', now always visible */
+            background: #f9f9f9;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+
+        .password-instructions h4 {
+            margin: 0 0 10px 0;
+            color: var(--secondary-color);
+            font-weight: 600;
+        }
+
+        .password-instructions ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .password-instructions li {
+            color: #666;
+            padding-left: 25px;
+            position: relative;
+            line-height: 1.6;
+            transition: color 0.3s ease;
+        }
+
+        .password-instructions li::before {
+            content: '\f00d'; /* fas fa-times */
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            top: 2px;
+            color: var(--primary-color);
+            transition: all 0.3s ease;
+        }
+
+        .password-instructions li.valid {
+            color: #333;
+            text-decoration: line-through;
+        }
+
+        .password-instructions li.valid::before {
+            content: '\f00c'; /* fas fa-check */
+            color: #4CAF50;
+            transform: scale(1.1);
+        }
+        /* === END NEW === */
+
         /* === NEW: Hide wrappers by default === */
         #login-form-wrapper,
         #signup-form-wrapper,
@@ -4091,13 +4172,27 @@
                         <input type="email" id="signupEmail" name="signupEmail" required>
                     </div>
                     <div class="form-group">
-                        <label for="signupPassword"><i class="fas fa-lock"></i>Password (min. 6 characters)</label>
-                        <input type="password" id="signupPassword" name="signupPassword" required minlength="6">
+                        <label for="signupPassword"><i class="fas fa-lock"></i>Password</label> <!-- MODIFIED: Removed text -->
+                        <input type="password" id="signupPassword" name="signupPassword" required minlength="8"> <!-- MODIFIED: minlength 8 -->
+                        
+                        <!-- NEW: Password Instructions -->
+                        <div id="password-instructions" class="password-instructions">
+                            <h4>Password must contain:</h4>
+                            <ul>
+                                <li id="pass-length">At least 8 characters</li>
+                                <li id="pass-lower">At least one lowercase letter (a-z)</li>
+                                <li id="pass-upper">At least one uppercase letter (A-Z)</li>
+                                <li id="pass-number">At least one number (0-9)</li>
+                                <li id="pass-special">At least one special character (!, @, #, etc.)</li>
+                            </ul>
+                        </div>
+                        <!-- END NEW -->
+
                     </div>
                     <div class="form-group">
                         <label for="signupConfirmPassword"><i class="fas fa-check-circle"></i>Confirm Password</label>
                         <input type="password" id="signupConfirmPassword" name="signupConfirmPassword" required
-                            minlength="6">
+                            minlength="8"> <!-- MODIFIED: minlength 8 -->
                     </div>
                     <div id="signup-error" class="form-error"></div>
                     <button type="submit" class="submit-btn driver-btn" style="background: var(--primary-color);">Create
@@ -4168,9 +4263,9 @@
                         style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
                         Trip Details</h3>
                     <div class="form-group">
-                        <label for="driverDestination"><i class="fas fa-map-marker-alt"></i>Destination Location</label>
-                        <input type="text" id="driverDestination" name="driverDestination"
-                            placeholder="Enter destination address or area">
+                        <label for="baseLocation"><i class="fas fa-map-marker-alt"></i>Base Location / City</label> <!-- <-- MODIFIED -->
+                        <input type="text" id="baseLocation" name="baseLocation" <!-- <-- MODIFIED -->
+                            placeholder="e.g., Gurugram"> <!-- <-- MODIFIED -->
                     </div>
                     <!-- New Map Preview Button -->
                     <button type="button" id="previewDriverMapBtn" class="submit-btn map-preview-btn">
@@ -4288,10 +4383,9 @@
                         style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
                         Routing Details</h3>
                     <div class="form-group">
-                        <label for="emergencyDestination"><i class="fas fa-map-marked-alt"></i>Destination
-                            Location</label>
-                        <input type="text" id="emergencyDestination" name="emergencyDestination"
-                            placeholder="Enter incident address or area">
+                        <label for="baseLocation"><i class="fas fa-map-marked-alt"></i>Base Location / City</label> <!-- <-- MODIFIED -->
+                        <input type="text" id="baseLocation" name="baseLocation" <!-- <-- MODIFIED -->
+                            placeholder="e.g., Gurugram"> <!-- <-- MODIFIED -->
                     </div>
                     <!-- New Map Preview Button -->
                     <button type="button" id="previewEmergencyMapBtn" class="submit-btn map-preview-btn">
@@ -4942,6 +5036,69 @@
             if (sidebarClose) sidebarClose.addEventListener('click', toggleSidebar);
             if (sidebarOverlay) sidebarOverlay.addEventListener('click', toggleSidebar);
 
+            // --- NEW: Password Validation UI Logic ---
+            const signupPasswordInput = document.getElementById('signupPassword');
+            const passwordInstructions = document.getElementById('password-instructions');
+            
+            if (signupPasswordInput && passwordInstructions) {
+                const passLength = document.getElementById('pass-length');
+                const passLower = document.getElementById('pass-lower'); // MODIFIED
+                const passUpper = document.getElementById('pass-upper'); // MODIFIED
+                const passNumber = document.getElementById('pass-number');
+                const passSpecial = document.getElementById('pass-special');
+                
+                // Show instructions on focus - REMOVED
+                // signupPasswordInput.addEventListener('focus', () => {
+                //     passwordInstructions.style.display = 'block';
+                // });
+                
+                // Hide instructions on blur (optional, you might want to keep it visible)
+                // signupPasswordInput.addEventListener('blur', () => {
+                //     passwordInstructions.style.display = 'none';
+                // });
+
+                // Validate as user types
+                signupPasswordInput.addEventListener('input', () => {
+                    const password = signupPasswordInput.value;
+                    
+                    // Check length
+                    if (password.length >= 8) {
+                        passLength.classList.add('valid');
+                    } else {
+                        passLength.classList.remove('valid');
+                    }
+                    
+                    // Check for lowercase letter
+                    if (/[a-z]/.test(password)) {
+                        passLower.classList.add('valid');
+                    } else {
+                        passLower.classList.remove('valid');
+                    }
+                    
+                    // Check for uppercase letter
+                    if (/[A-Z]/.test(password)) {
+                        passUpper.classList.add('valid');
+                    } else {
+                        passUpper.classList.remove('valid');
+                    }
+                    
+                    // Check for number
+                    if (/\d/.test(password)) {
+                        passNumber.classList.add('valid');
+                    } else {
+                        passNumber.classList.remove('valid');
+                    }
+                    
+                    // Check for special character
+                    if (/[^a-zA-Z0-9]/.test(password)) {
+                        passSpecial.classList.add('valid');
+                    } else {
+                        passSpecial.classList.remove('valid');
+                    }
+                });
+            }
+            // --- END NEW Password Validation UI Logic ---
+
             // --- NEW: Profile Dropdown Modal Logic ---
             const profileMenuLinks = document.getElementById('profile-dropdown-menu');
 
@@ -5066,17 +5223,43 @@
             }
 
             if (submitReviewBtn) {
-                submitReviewBtn.addEventListener('click', () => {
+                submitReviewBtn.addEventListener('click', async () => { // <-- Add async
                     if (currentRating === 0) {
                         showAlert('Rating Required', 'Please select a star rating before submitting.', 'warning');
                         return;
                     }
 
+                    // --- MODIFIED: Real Firestore Submission ---
+                    if (!window.db || !window.fs || !window.currentUserId) {
+                        showAlert('Error', 'Cannot submit review. You are not logged in.', 'error');
+                        return;
+                    }
+
+                    const reviewComment = document.getElementById('review-comment').value;
+
                     // Simulate submission
                     submitReviewBtn.textContent = 'Submitting...';
                     submitReviewBtn.disabled = true;
 
-                    setTimeout(() => {
+                    try {
+                        const reviewData = {
+                            userId: window.currentUserId,
+                            userName: window.currentUserData.name || formatEmailAsName(window.currentUserData.email) || 'Anonymous User',
+                            userPhotoUrl: window.currentUserData.photoUrl || null,
+                            rating: currentRating,
+                            comment: reviewComment,
+                            createdAt: new Date().toISOString()
+                        };
+                        
+                        // Add to a PUBLIC 'reviews' collection
+                        const reviewsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'reviews');
+                        
+                        // To prevent spam, let's set the doc ID as the user's ID.
+                        // This means a user can only have ONE review.
+                        // When they submit again, it just overwrites their old one.
+                        const reviewDocRef = window.fs.doc(reviewsColRef, window.currentUserId);
+                        await window.fs.setDoc(reviewDocRef, reviewData);
+
                         // Show success
                         if (ratingContent) ratingContent.style.display = 'none';
                         if (ratingSuccess) ratingSuccess.style.display = 'block';
@@ -5093,11 +5276,17 @@
                             }
                             // Reset rating
                             setRating(0);
-                            const reviewComment = document.getElementById('review-comment');
-                            if (reviewComment) reviewComment.value = '';
+                            const reviewCommentEl = document.getElementById('review-comment');
+                            if (reviewCommentEl) reviewCommentEl.value = '';
                         }, 2500);
 
-                    }, 1000);
+                    } catch (error) {
+                        console.error("Error submitting review:", error);
+                        showAlert('Error', `Could not submit review: ${error.message}`, 'error');
+                        submitReviewBtn.textContent = 'Submit Review';
+                        submitReviewBtn.disabled = false;
+                    }
+                    // --- END MODIFICATION ---
                 });
             }
             // --- END Star Rating Logic ---
@@ -5334,14 +5523,74 @@
             const sosBtn = document.getElementById('sos-btn');
 
             if (shareRideBtn) {
-                shareRideBtn.addEventListener('click', () => {
-                    showAlert('Share Ride', 'Ride sharing activated. (This is a demo)', 'info');
+                shareRideBtn.addEventListener('click', async () => { // <-- MODIFIED: Added async
+                    // --- NEW: Full "Share My Ride" Firestore Logic ---
+                    if (!window.db || !window.fs || !window.currentUserId) {
+                        showAlert('Error', 'Cannot share ride. You are not logged in.', 'error');
+                        return;
+                    }
+                    
+                    const tripId = `SRT-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+                    
+                    showAlert('Sharing Ride...', 'Activating your live trip...', 'info');
+
+                    try {
+                        const shareData = {
+                            tripId: tripId,
+                            userId: window.currentUserId,
+                            userName: window.currentUserData.name || 'A Traveler',
+                            status: 'active',
+                            sharedAt: new Date().toISOString(),
+                            // In a real app, this would update with live location data
+                            lastLocation: window.currentUserData.defaultLocation || 'Unknown'
+                        };
+                        
+                        // Add to a PRIVATE 'shared-trips' collection for this user
+                        const shareColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'users', window.currentUserId, 'shared-trips');
+                        await window.fs.addDoc(shareColRef, shareData);
+                        
+                        showAlert('Ride Sharing Active!', `Your trip (ID: <strong>${tripId}</strong>) is now being shared with your trusted contacts. (This is a demo)`, 'success');
+
+                    } catch (error) {
+                        console.error("Error sharing ride:", error);
+                        showAlert('Sharing Failed', `Could not share your ride: ${error.message}.`, 'error');
+                    }
+                    // --- END NEW LOGIC ---
                 });
             }
 
             if (sosBtn) {
-                sosBtn.addEventListener('click', () => {
-                    showAlert('Emergency SOS!', 'SOS signal sent to emergency contacts and services. (This is a demo)', 'error');
+                sosBtn.addEventListener('click', async () => {
+                    if (!window.db || !window.fs || !window.currentUserId) {
+                        showAlert('Error', 'Cannot send SOS. You are not logged in or Firebase is not ready.', 'error');
+                        return;
+                    }
+
+                    const user = window.currentUserData;
+                    const location = user.defaultLocation || user.destination || 'Unknown (User has no default location)';
+                    
+                    showAlert('Sending SOS...', 'Contacting emergency services...', 'warning');
+
+                    try {
+                        const sosAlertData = {
+                            userId: window.currentUserId,
+                            userName: user.name || user.operatorName || 'Unknown User',
+                            userPhone: user.phone || 'Unknown Phone',
+                            userRole: user.role || 'unknown',
+                            location: location,
+                            timestamp: new Date().toISOString()
+                        };
+                        
+                        // Add to the PUBLIC 'sos-alerts' collection
+                        const sosColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'sos-alerts');
+                        await window.fs.addDoc(sosColRef, sosAlertData);
+                        
+                        showAlert('SOS ACTIVATED!', 'Your location and details have been sent to emergency services and trusted contacts.', 'error');
+
+                    } catch (error) {
+                        console.error("Error sending SOS:", error);
+                        showAlert('SOS Failed', `Could not send SOS: ${error.message}. Please call for help!`, 'error');
+                    }
                 });
             }
             // --- END Safety Modal Logic ---
@@ -5364,23 +5613,65 @@
                 });
             }
 
-            // Share buttons (demo)
-            document.getElementById('share-whatsapp')?.addEventListener('click', (e) => {
-                e.preventDefault();
-                showAlert('Share', 'Sharing to WhatsApp... (demo)', 'info');
-            });
-            document.getElementById('share-twitter')?.addEventListener('click', (e) => {
-                e.preventDefault();
-                showAlert('Share', 'Sharing to Twitter... (demo)', 'info');
-            });
-            document.getElementById('share-facebook')?.addEventListener('click', (e) => {
-                e.preventDefault();
-                showAlert('Share', 'Sharing to Facebook... (demo)', 'info');
-            });
-            document.getElementById('share-sms')?.addEventListener('click', (e) => {
-                e.preventDefault();
-                showAlert('Share', 'Opening SMS... (demo)', 'info');
-            });
+            // --- MODIFIED: Make Refer Share buttons functional ---
+            const referralCodeInput = document.getElementById('referral-code');
+            
+            const getShareText = () => {
+                const code = referralCodeInput ? referralCodeInput.value : 'LOGIN-TO-SEE-CODE';
+                return encodeURIComponent(`Join me on SafeReturn! It's a great app for road safety. Use my code ${code} to sign up and get a reward! #SafeReturn`);
+            };
+
+            const shareWhatsappBtn = document.getElementById('share-whatsapp');
+            if(shareWhatsappBtn) {
+                shareWhatsappBtn.addEventListener('click', (e) => {
+                    if (!window.currentUserId) {
+                        e.preventDefault();
+                        showAlert('Login Required', 'Please log in to get your referral code.', 'warning');
+                        return;
+                    }
+                    shareWhatsappBtn.href = `https://api.whatsapp.com/send?text=${getShareText()}`;
+                    shareWhatsappBtn.target = '_blank'; // Open in new tab
+                });
+            }
+
+            const shareTwitterBtn = document.getElementById('share-twitter');
+            if(shareTwitterBtn) {
+                shareTwitterBtn.addEventListener('click', (e) => {
+                    if (!window.currentUserId) {
+                        e.preventDefault();
+                        showAlert('Login Required', 'Please log in to get your referral code.', 'warning');
+                        return;
+                    }
+                    shareTwitterBtn.href = `https://twitter.com/intent/tweet?text=${getShareText()}`;
+                    shareTwitterBtn.target = '_blank'; // Open in new tab
+                });
+            }
+
+            const shareFacebookBtn = document.getElementById('share-facebook');
+            if(shareFacebookBtn) {
+                shareFacebookBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (!window.currentUserId) {
+                        showAlert('Login Required', 'Please log in to get your referral code.', 'warning');
+                        return;
+                    }
+                    // Facebook sharing is complex and needs a real URL. We simulate.
+                    showAlert('Share', 'Open Facebook in a new tab to share. (This is a demo)', 'info');
+                });
+            }
+
+            const shareSmsBtn = document.getElementById('share-sms');
+            if(shareSmsBtn) {
+                shareSmsBtn.addEventListener('click', (e) => {
+                    if (!window.currentUserId) {
+                        e.preventDefault();
+                        showAlert('Login Required', 'Please log in to get your referral code.', 'warning');
+                        return;
+                    }
+                    // SMS href is not reliable, so we just show the alert.
+                    showAlert('Share via SMS', `Your SMS app will open with your referral code. (This is a demo)`, 'info');
+                });
+            }
             // --- END Refer Modal Logic ---
 
 
@@ -5598,13 +5889,13 @@
 
             if (previewDriverMapBtn) {
                 previewDriverMapBtn.addEventListener('click', () => {
-                    loadMapPreview('driver-map-container', 'driverDestination');
+                    loadMapPreview('driver-map-container', 'baseLocation'); // <-- MODIFIED
                 });
             }
 
             if (previewEmergencyMapBtn) {
                 previewEmergencyMapBtn.addEventListener('click', () => {
-                    loadMapPreview('emergency-map-container', 'emergencyDestination');
+                    loadMapPreview('emergency-map-container', 'baseLocation'); // <-- MODIFIED
                 });
             }
 
@@ -5615,6 +5906,13 @@
             const bookRideModal = document.getElementById('book-ride-modal');
             const bookRideForm = document.getElementById('book-ride-form');
             const bookRideError = document.getElementById('book-ride-error');
+            
+            // --- 4. Emergency: Priority Route ---
+            const priorityRouteBtn = document.getElementById('get-priority-route-btn');
+            const priorityRouteModal = document.getElementById('priority-route-modal');
+            const priorityRouteForm = document.getElementById('priority-route-form');
+            const priorityRouteError = document.getElementById('priority-route-error');
+
 
             if (bookRideBtn && bookRideModal) {
                 bookRideBtn.addEventListener('click', () => {
@@ -5652,14 +5950,15 @@
                             to: to,
                             vehicle: vehicle,
                             status: 'pending', // pending, accepted, completed
-                            createdAt: new Date().toISOString()
+                            createdAt: new Date().toISOString(),
+                            locality: window.currentUserData.defaultLocation ? window.currentUserData.defaultLocation.split(',').pop().trim() : 'unknown' // <-- MODIFIED: Add locality for filtering
                         };
 
                         // Add to the PUBLIC 'ride-requests' collection
                         const rideRequestsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests');
                         await window.fs.addDoc(rideRequestsColRef, rideRequestData);
                         
-                        showAlert('Request Sent!', `Your ride request from ${from} to ${to} has been sent to nearby drivers.`, 'success');
+                        showAlert('Request Sent!', `Your ride request from ${from} to ${to} has been sent to nearby drivers.`, 'success'); // <-- MODIFIED: Updated alert
                         
                         if(bookRideModal) bookRideModal.classList.remove('active');
                         bookRideForm.reset();
@@ -5676,194 +5975,20 @@
                     }
                 });
             }
-
-
-            // --- 2. Driver: View Ride Requests ---
-            const viewRideRequestsBtn = document.getElementById('view-ride-requests-btn');
-            const rideRequestsModal = document.getElementById('ride-requests-modal');
-            const rideRequestsList = document.getElementById('ride-requests-list');
-
-            if (viewRideRequestsBtn && rideRequestsModal) {
-                viewRideRequestsBtn.addEventListener('click', () => {
-                    rideRequestsModal.classList.add('active');
-                    // Start listening for new ride requests
-                    listenForRideRequests();
-                });
-            }
-
-            const listenForRideRequests = () => {
-                if (window.rideRequestsListener) {
-                    console.log("Listener already active.");
-                    return; // Already listening
-                }
-                
-                if (!window.db || !window.fs) {
-                    if (rideRequestsList) rideRequestsList.innerHTML = '<li><p>Error: Firebase not initialized.</p></li>';
-                    return;
-                }
-                
-                if (rideRequestsList) rideRequestsList.innerHTML = '<li><p>Listening for new requests...</p></li>';
-
-                const rideRequestsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests');
-                
-                // Create a query for only 'pending' requests
-                const q = window.fs.query(rideRequestsColRef, window.fs.where("status", "==", "pending"));
-
-                window.rideRequestsListener = window.fs.onSnapshot(q, (querySnapshot) => {
-                    if (querySnapshot.empty) {
-                        if (rideRequestsList) rideRequestsList.innerHTML = '<li><p>No pending ride requests.</p></li>';
-                        return;
-                    }
-
-                    if (rideRequestsList) rideRequestsList.innerHTML = ''; // Clear list
-                    querySnapshot.forEach((doc) => {
-                        const request = doc.data();
-                        const requestId = doc.id;
-                        const timeAgo = new Date(request.createdAt).toLocaleString('en-IN');
-                        
-                        const item = document.createElement('li');
-                        item.className = 'modal-list-item ride-request-item';
-                        item.innerHTML = `
-                            <div class="icon"><i class="fas fa-map-marker-alt"></i></div>
-                            <div class="details">
-                                <p>${request.travelerName}</p>
-                                <span><strong>From:</strong> ${request.from}</span>
-                                <span><strong>To:</strong> ${request.to}</span>
-                                <span><strong>Vehicle:</strong> ${request.vehicle}</span>
-                                <span class="timestamp">${timeAgo}</span>
-                            </div>
-                            <button class="accept-btn" data-id="${requestId}">Accept</button>
-                        `;
-                        rideRequestsList.appendChild(item);
-                    });
-                    
-                    // Add listeners to new accept buttons
-                    rideRequestsList.querySelectorAll('.accept-btn').forEach(btn => {
-                        btn.addEventListener('click', async (e) => {
-                            const requestId = e.target.dataset.id;
-                            e.target.disabled = true;
-                            e.target.textContent = 'Accepting...';
-
-                            try {
-                                const requestDocRef = window.fs.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests', requestId);
-                                
-                                // Update status to 'accepted' and assign to this driver
-                                await window.fs.updateDoc(requestDocRef, {
-                                    status: 'accepted',
-                                    driverId: window.currentUserId,
-                                    driverName: window.currentUserData.name || 'Driver'
-                                });
-                                
-                                showAlert('Ride Accepted!', 'You have accepted the ride. The traveler has been notified.', 'success');
-                                // The onSnapshot listener will automatically remove this from the list
-                            } catch (error) {
-                                console.error("Error accepting ride:", error);
-                                showAlert('Error', `Could not accept ride: ${error.message}`, 'error');
-                                e.target.disabled = false;
-                                e.target.textContent = 'Accept';
-                            }
-                        });
-                    });
-
-                }, (error) => {
-                    console.error("Error listening for ride requests:", error);
-                    if (rideRequestsList) rideRequestsList.innerHTML = `<li><p>Error: ${error.message}</p></li>`;
-                    window.rideRequestsListener = null; // Reset listener
-                });
-            };
-
-
-            // --- 3. Emergency: View Active Alerts ---
-            const viewActiveAlertsBtn = document.getElementById('view-active-alerts-btn');
-            const activeAlertsModal = document.getElementById('active-alerts-modal');
-            const activeAlertsList = document.getElementById('active-alerts-list');
-
-            if (viewActiveAlertsBtn && activeAlertsModal) {
-                viewActiveAlertsBtn.addEventListener('click', () => {
-                    activeAlertsModal.classList.add('active');
-                    // Start listening for new alerts
-                    listenForActiveAlerts();
-                });
-            }
             
-            const listenForActiveAlerts = () => {
-                if (window.activeAlertsListener) {
-                    console.log("Alert listener already active.");
-                    return; // Already listening
-                }
-                
-                if (!window.db || !window.fs) {
-                    if (activeAlertsList) activeAlertsList.innerHTML = '<li><p>Error: Firebase not initialized.</p></li>';
-                    return;
-                }
-                
-                if (activeAlertsList) activeAlertsList.innerHTML = '<li><p>Listening for new alerts...</p></li>';
-
-                const alertsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'alerts');
-                
-                // Create a query for 'active' alerts (this is a demo, in real life you'd filter)
-                const q = window.fs.query(alertsColRef);
-
-                window.activeAlertsListener = window.fs.onSnapshot(q, (querySnapshot) => {
-                    if (querySnapshot.empty) {
-                        if (activeAlertsList) activeAlertsList.innerHTML = '<li><p>No active alerts at this time.</p></li>';
-                        return;
-                    }
-
-                    if (activeAlertsList) activeAlertsList.innerHTML = ''; // Clear list
-                    querySnapshot.forEach((doc) => {
-                        const alert = doc.data();
-                        const timeAgo = new Date(alert.createdAt).toLocaleString('en-IN');
-                        
-                        const item = document.createElement('li');
-                        item.className = 'modal-list-item alert-item';
-                        item.innerHTML = `
-                            <div class="icon"><i class="fas fa-car-crash"></i></div>
-                            <div class="details">
-                                <p>${alert.type || 'Incident'}</p>
-                                <span><strong>Location:</strong> ${alert.location || 'Unknown'}</span>
-                                <span><strong>Details:</strong> ${alert.details || 'No details'}</span>
-                                <span class="timestamp">Reported by ${alert.reporter || 'Community'} at ${timeAgo}</span>
-                            </div>
-                        `;
-                        activeAlertsList.appendChild(item);
-                    });
-                    
-                }, (error) => {
-                    console.error("Error listening for alerts:", error);
-                    if (activeAlertsList) activeAlertsList.innerHTML = `<li><p>Error: ${error.message}</p></li>`;
-                    window.activeAlertsListener = null; // Reset listener
-                });
-                
-                // --- DEMO: Seed an alert if none exist ---
-                (async () => {
-                    const snap = await window.fs.getDocs(q);
-                    if(snap.empty) {
-                        console.log("Seeding demo alert...");
-                        await window.fs.addDoc(alertsColRef, {
-                            type: "Vehicle Accident",
-                            location: "NH-48, Near Cyber Hub",
-                            details: "Two-car collision, heavy traffic blockage.",
-                            reporter: "Driver",
-                            createdAt: new Date().toISOString()
-                        });
-                    }
-                })();
-                
-            };
-
-            // --- 4. Emergency: Get Priority Route ---
-            const getPriorityRouteBtn = document.getElementById('get-priority-route-btn');
-            const priorityRouteModal = document.getElementById('priority-route-modal');
-            const priorityRouteForm = document.getElementById('priority-route-form');
-            const priorityRouteError = document.getElementById('priority-route-error');
-
-            if (getPriorityRouteBtn && priorityRouteModal) {
-                getPriorityRouteBtn.addEventListener('click', () => {
+            if (priorityRouteBtn && priorityRouteModal) {
+                priorityRouteBtn.addEventListener('click', () => {
                     priorityRouteModal.classList.add('active');
+                    // --- NEW: Pre-fill location if available ---
+                    const fromInput = document.getElementById('incident-location');
+                    if (fromInput && window.currentUserData && window.currentUserData.baseLocation) { // <-- MODIFIED
+                        fromInput.value = window.currentUserData.baseLocation; // <-- MODIFIED
+                    }
+                    // --- END NEW ---
                 });
             }
-            
+
+            // --- FIX: This block was incorrectly nested and duplicated ---
             if (priorityRouteForm) {
                 priorityRouteForm.addEventListener('submit', (e) => {
                     e.preventDefault();
@@ -5881,15 +6006,20 @@
                     
                     if (priorityRouteError) priorityRouteError.style.display = 'none';
 
-                    // SIMULATE AI ROUTE GENERATION
+                    // --- MODIFIED: Link route to phone number (simulation) ---
                     const submitBtn = priorityRouteForm.querySelector('.submit-btn');
                     submitBtn.disabled = true;
                     submitBtn.textContent = 'Generating...';
                     
+                    // Get phone number
+                    const phone = window.currentUserData?.phone || 'your registered number';
+                    // Create Google Maps link
+                    const mapsLink = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${encodeURIComponent(to)}&travelmode=driving`;
+
                     setTimeout(() => {
                         showAlert(
                             'Route Generated!', 
-                            `An AI-optimized priority route from <strong>${from}</strong> to <strong>${to}</strong> has been sent to your device.<br/>(This is a demo)`, 
+                            `An AI-optimized route has been sent via SMS to <strong>${phone}</strong>.<br/><br/><a href="${mapsLink}" target="_blank" style="color: var(--primary-color); text-decoration: underline; font-weight: 600;">Click Here to View Route Now</a><br/><br/>(This is a demo)`, 
                             'success'
                         );
                         if (priorityRouteModal) priorityRouteModal.classList.remove('active');
@@ -5897,6 +6027,208 @@
                         submitBtn.disabled = false;
                         submitBtn.textContent = 'Generate Route';
                     }, 1500);
+                    // --- END MODIFICATION ---
+                });
+            }
+            
+            // --- FIX: This block was incorrectly nested and duplicated ---
+            // --- FIX 2: Corrected selector from .payment-method to .saved-payment-method ---
+            const paymentModal = document.getElementById('payment-modal');
+            if (paymentModal) {
+                paymentModal.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('remove-btn') || e.target.closest('.remove-btn')) {
+                        const paymentMethodEl = e.target.closest('.saved-payment-method'); // <-- Fixed selector
+                        if (paymentMethodEl) {
+                            paymentMethodEl.style.opacity = '0';
+                            paymentMethodEl.style.transform = 'translateX(20px)';
+                            paymentMethodEl.style.transition = 'all 0.3s ease';
+                            setTimeout(() => {
+                                paymentMethodEl.remove();
+                                showAlert('Success', 'Payment method removed. (This is a demo)', 'success');
+                            }, 300);
+                        }
+                    }
+                });
+            }
+            // --- END FIX ---
+            
+            
+            // --- NEW: Add listeners for ride/alert population functions ---
+            
+            // --- Populate Ride Requests (Driver) ---
+            const populateAndListenForRideRequests = () => {
+                const requestsListEl = document.getElementById('ride-requests-list');
+                if (!requestsListEl) return;
+                
+                if (!window.db || !window.fs || !window.currentUserId || !window.currentUserData?.onDuty) {
+                    requestsListEl.innerHTML = '<li><p>You must be logged in and "On Duty" to see ride requests.</p></li>';
+                    return;
+                }
+                
+                // --- NEW: Get driver's locality ---
+                const driverLocality = window.currentUserData.baseLocation ? window.currentUserData.baseLocation.toLowerCase() : '';
+                
+                if (!driverLocality) {
+                    requestsListEl.innerHTML = '<li><p>Please update your profile with a "Base Location / City" to see local requests.</p></li>';
+                    return;
+                }
+                // --- END NEW ---
+
+                // Detach old listener if it exists
+                if (window.rideRequestsListener) {
+                    window.rideRequestsListener(); // Call the unsubscribe function
+                    window.rideRequestsListener = null;
+                }
+                
+                requestsListEl.innerHTML = '<li><p>Listening for new ride requests...</p></li>';
+                
+                const requestsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests');
+                // Query for pending requests
+                const q = window.fs.query(requestsColRef, window.fs.where('status', '==', 'pending'));
+                
+                // Save the unsubscribe function returned by onSnapshot
+                window.rideRequestsListener = window.fs.onSnapshot(q, (querySnapshot) => {
+                    
+                    requestsListEl.innerHTML = ''; // Clear list
+                    let requestsFound = 0; // --- NEW: Counter for filtered requests ---
+
+                    querySnapshot.forEach(doc => {
+                        const request = doc.data();
+                        
+                        // --- NEW: Filter by locality ---
+                        const requestLocation = request.from ? request.from.toLowerCase() : '';
+                        if (requestLocation.includes(driverLocality)) {
+                            requestsFound++;
+                        // --- END NEW ---
+
+                            const requestEl = document.createElement('li');
+                            requestEl.className = 'modal-list-item ride-request-item';
+                            requestEl.innerHTML = `
+                                <span><strong>Vehicle:</strong> ${request.vehicle}</span>
+                            </div>
+                            <button class="accept-btn" data-id="${doc.id}">Accept</button>
+                        `;
+                            requestsListEl.appendChild(requestEl);
+                            
+                        // --- NEW: Close filter condition ---
+                        }
+                        // --- END NEW ---
+                    });
+                    
+                    // --- NEW: Check if any requests were found *after* filtering ---
+                    if (requestsFound === 0) {
+                        requestsListEl.innerHTML = '<li><p>No pending ride requests found in your locality.</p></li>';
+                    }
+                    // --- END NEW ---
+                    
+                    // Add listeners to new accept buttons
+                    requestsListEl.querySelectorAll('.accept-btn').forEach(btn => {
+                        btn.addEventListener('click', async (e) => {
+                            const requestId = e.target.dataset.id;
+                            e.target.disabled = true;
+                            e.target.textContent = 'Accepting...';
+                            
+                            try {
+                                const requestDocRef = window.fs.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests', requestId);
+                                await window.fs.updateDoc(requestDocRef, {
+                                    status: 'accepted',
+                                    driverId: window.currentUserId,
+                                    driverName: window.currentUserData.name || 'Community Driver'
+                                });
+                                showAlert('Ride Accepted!', 'The traveler has been notified.', 'success');
+                                // The ride will disappear from the list automatically due to the onSnapshot query
+                            } catch (error) {
+                                console.error("Error accepting ride:", error);
+                                showAlert('Error', `Could not accept ride: ${error.message}`, 'error');
+                                e.target.disabled = false;
+                                e.target.textContent = 'Accept';
+                            }
+                        });
+                    });
+                    
+                }, (error) => {
+                    console.error("Error listening to ride requests:", error);
+                    requestsListEl.innerHTML = `<li><p>Error loading requests: ${error.message}</p></li>`;
+                });
+            };
+            
+            // --- Populate Active Alerts (Emergency) ---
+            const populateAndListenForActiveAlerts = () => {
+                const alertsListEl = document.getElementById('active-alerts-list');
+                if (!alertsListEl) return;
+                
+                if (!window.db || !window.fs || !window.currentUserId || !window.currentUserData?.onDuty) {
+                    alertsListEl.innerHTML = '<li><p>You must be logged in and "On Duty" to see active alerts.</p></li>';
+                    return;
+                }
+                
+                // Detach old listener
+                if (window.activeAlertsListener) {
+                    window.activeAlertsListener(); // Call the unsubscribe function
+                    window.activeAlertsListener = null;
+                }
+                
+                alertsListEl.innerHTML = '<li><p>Listening for new SOS alerts...</p></li>';
+                
+                const alertsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'sos-alerts');
+                
+                // Save the unsubscribe function returned by onSnapshot
+                window.activeAlertsListener = window.fs.onSnapshot(alertsColRef, (querySnapshot) => {
+                    if (querySnapshot.empty) {
+                        alertsListEl.innerHTML = '<li><p>No active SOS alerts found.</p></li>';
+                        return;
+                    }
+                    
+                    alertsListEl.innerHTML = ''; // Clear list
+                    let alerts = [];
+                    querySnapshot.forEach(doc => {
+                        alerts.push(doc.data());
+                    });
+                    
+                    // Sort by timestamp, newest first
+                    alerts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    
+                    alerts.forEach(alert => {
+                        const alertEl = document.createElement('li');
+                        alertEl.className = 'modal-list-item alert-item';
+                        const alertTime = new Date(alert.timestamp).toLocaleString('en-IN');
+                        
+                        alertEl.innerHTML = `
+                            <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
+                            <div class="details">
+                                <p>SOS from ${alert.userName} (${alert.userRole})</p>
+                                <span><strong>Location:</strong> ${alert.location}</span>
+                                <span><strong>Contact:</strong> ${alert.userPhone}</span>
+                                <span class="timestamp">${alertTime}</span>
+                            </div>
+                        `;
+                        alertsListEl.appendChild(alertEl);
+                    });
+                    
+                }, (error) => {
+                    console.error("Error listening to active alerts:", error);
+                    alertsListEl.innerHTML = `<li><p>Error loading alerts: ${error.message}</p></li>`;
+                });
+            };
+            
+            // --- Add listeners to the buttons that open these modals ---
+            const viewRideRequestsBtn = document.getElementById('view-ride-requests-btn');
+            const rideRequestsModal = document.getElementById('ride-requests-modal');
+            
+            if (viewRideRequestsBtn && rideRequestsModal) {
+                viewRideRequestsBtn.addEventListener('click', () => {
+                    rideRequestsModal.classList.add('active');
+                    populateAndListenForRideRequests(); // Call the function
+                });
+            }
+
+            const viewActiveAlertsBtn = document.getElementById('view-active-alerts-btn');
+            const activeAlertsModal = document.getElementById('active-alerts-modal');
+            
+            if (viewActiveAlertsBtn && activeAlertsModal) {
+                viewActiveAlertsBtn.addEventListener('click', () => {
+                    activeAlertsModal.classList.add('active');
+                    populateAndListenForActiveAlerts(); // Call the function
                 });
             }
 
@@ -5904,183 +6236,11 @@
         }); // --- End of DOMContentLoaded ---
     </script>
 
-      <!-- footer -->
-<footer
-    style="background-color: var(--dark-bg); color: var(--light-text); padding: 50px 0; font-family: 'Poppins', sans-serif;">
-    <div
-        style="max-width: 1200px; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; padding: 0 20px;">
 
-        <div class="footer-section">
-            <h3
-                style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.5em; display: flex; align-items: center;">
-                <span style="margin-right: 10px;">🚦</span> Road Safety Club
-            </h3>
-            <p style="line-height: 1.6;">
-                Our mission is to empower everyone with the knowledge to drive and walk safely. Join us in making
-                roads safer
-                for all!
-            </p>
 
-            <button onclick="window.scrollTo({top:0, behavior:'smooth'});" class="back-to-top-btn"
-                style="margin-top: 25px; padding: 12px 25px; background-color: var(--accent-color); border: none; color: var(--dark-bg); font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                ↑ Zoom Back Up!
-            </button>
-        </div>
 
-        <div class="footer-section">
-            <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">📞 Connect With Us</h3>
-            <ul style="list-style: none; padding: 0; line-height: 2;">
-                <li><a href="mailto:info@roadsafetyclub.com" class="footer-link email-link">info@roadsafetyclub.com</a>
-                </li>
-            </ul>
 
-            <h4 style="color: var(--light-text); margin-top: 15px; margin-bottom: 5px; font-weight: 600;">Team
-                Contacts:</h4>
-            <ul style="list-style: none; padding: 0; line-height: 1.8;">
-                <li><a href="tel:9996445592" class="footer-link contact-list-link"><strong>Vivek Yadav:</strong>
-                        9996445592</a>
-                </li>
-                <li><a href="tel:9251399133" class="footer-link contact-list-link"><strong>Shri ji
-                            Aggarwal:</strong>
-                        9457057473</a></li>
-                <li><a href="tel:9389864319" class="footer-link contact-list-link"><strong>Shreya
-                            Chaudhary:</strong>
-                        9389864319</a></li>
-                <li><a href="tel:7056123205" class="footer-link contact-list-link"><strong>Ekta Pannu:</strong>
-                        7056123205</a>
-                </li>
-                <li><a href="tel:9457057473" class="footer-link contact-list-link"><strong>Khush Raghav:</strong>
-                        9251399133</a>
-                </li>
-            </ul>
-        </div>
 
-        <div class="footer-section">
-            <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">🔗 Quick Resources</h3>
-            <ul style="list-style: none; padding: 0; line-height: 2;">
-                <!-- This is the updated link -->
-                <li><a href="Road-safety-handbook.pdf" class="footer-link">Traffic Rules Handbook</a></li>
-                <li><a href="/events" class="footer-link">Upcoming Safety Events</a></li>
-                <li><a href="/blog" class="footer-link">Safety Blog</a></li>
-                <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSf4sZdUmq6lhWxHyZ9yFuACp7wRLufzcB2VzmCBoVyg7qvn7w/viewform"
-                        class="footer-link">Join Our Volunteer Team</a></li>
-            </ul>
 
-            <div style="margin-top: 20px;">
-                <a href="#" class="social-icon" aria-label="Follow us on World Wide Web">🌐</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Facebook">📘</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Twitter">🐦</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Instagram">📸</a>
-            </div>
-        </div>
-    </div>
-
-    <div style="text-align: center; padding-top: 25px; border-top: 1px solid var(--border-color); margin-top: 50px;">
-        <p>&copy; 2025 Road Safety Club. Drive Smart, Live Safe.</p>
-    </div>
-
-    <div id="cursor-wrapper" class="cursor-wrapper">
-        <div class="single-segment">
-            <div class="segment-color red"></div>
-            <div class="segment-color yellow"></div>
-            <div class="segment-color green"></div>
-        </div>
-    </div>
-    <style>
-        /* CSS Variables for easy color changes */
-        :root {
-            --dark-bg: #1a1a1a;
-            --light-text: #fff;
-            --accent-color: #ffcc00;
-            /* Yellow */
-            --accent-hover: #e6b800;
-            --border-color: #444;
-        }
-
-        footer {
-            /* This ensures the font-family from the inline style is the starting point */
-            font-family: 'Poppins', Arial, sans-serif !important;
-        }
-
-        .footer-section {
-            flex: 1;
-            min-width: 280px;
-            margin-bottom: 20px;
-        }
-
-        /* General Link Styling */
-        .footer-link {
-            color: var(--light-text);
-            text-decoration: none;
-            transition: color 0.3s, transform 0.3s;
-            display: inline-block;
-        }
-
-        .footer-link:hover {
-            color: var(--accent-color);
-            transform: translateX(5px);
-            /* Subtle shift */
-        }
-
-        /* Team Contact List specific styling - removes the phone icon for this block */
-        .contact-list-link {
-            padding-left: 20px;
-            /* Indent slightly for visual hierarchy */
-        }
-
-        /* Social Icon Animation */
-        .social-icon {
-            color: var(--light-text);
-            font-size: 24px;
-            margin-right: 15px;
-            /* Use margin-right for spacing */
-            display: inline-block;
-            transition: transform 0.3s, color 0.3s;
-            text-decoration: none;
-        }
-
-        .social-icon:hover {
-            color: var(--accent-color);
-            transform: translateY(-5px) scale(1.1);
-            /* Lift and enlarge */
-        }
-
-        /* Back to Top Button hover */
-        .back-to-top-btn:hover {
-            background-color: var(--accent-hover);
-            transform: translateY(-3px) scale(1.02);
-            /* Lift and slightly enlarge */
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Clear focus state for accessibility */
-        .footer-link:focus,
-        .social-icon:focus,
-        .back-to-top-btn:focus {
-            outline: 2px solid var(--accent-color);
-            outline-offset: 3px;
-        }
-
-        /* Specific Link Icons (A friendlier touch) - Applied only to General/Email links */
-        .phone-link::before {
-            content: '📞 ';
-            color: var(--accent-color);
-        }
-
-        .email-link::before {
-            content: '📧 ';
-            color: var(--accent-color);
-        }
-
-    </style>
-    
-</footer>
-</body>
-
-</html>
-
-</body>
-
-</html>
 
 
