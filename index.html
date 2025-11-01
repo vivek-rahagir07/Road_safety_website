@@ -155,6 +155,7 @@
             const navUserInfo = document.getElementById('nav-user-info');
             const navUserPhoto = document.getElementById('nav-user-photo'); // <-- CHANGED from navUserInitial
             const navLogoutBtn = document.getElementById('nav-logout-btn');
+            const womenShieldLink = document.getElementById('nav-women-shield-link'); // <-- NEW
 
             // --- FIX 2: Moved these definitions up ---
             // Get elements for dynamic content
@@ -164,7 +165,7 @@
             const communityProfileName = document.getElementById('community-profile-name');
             const communityRegisterTitle = document.getElementById('community-register-title');
             const communityRegisterSubtitle = document.getElementById('community-register-subtitle');
-            
+
             // --- NEW: Role-specific action buttons ---
             const travelerActions = document.getElementById('traveler-actions');
             const driverActions = document.getElementById('driver-actions');
@@ -187,6 +188,21 @@
 
             // Listen for authentication state changes (login/logout)
             onAuthStateChanged(auth, async (user) => {
+
+                // --- NEW: Add click listener for Women Shield ---
+                // We set the listener *once* and just toggle behavior
+                if (womenShieldLink && !womenShieldLink.listenerAdded) {
+                    womenShieldLink.addEventListener('click', (e) => {
+                        if (womenShieldLink.classList.contains('disabled')) {
+                            e.preventDefault();
+                            // Use the global showAlert
+                            window.showAlert('Login Required', 'You must be signed up and logged in to access the Women Shield.', 'warning');
+                        }
+                    });
+                    womenShieldLink.listenerAdded = true; // Flag to prevent multiple listeners
+                }
+                // --- END NEW ---
+
                 if (user) {
                     // User is signed in
                     console.log('User logged in:', user.email);
@@ -317,6 +333,24 @@
                     }
                     // --- END NEW LOGIC ---
 
+                    // --- NEW: Enable/Disable Women Shield based on gender ---
+                    const userGender = window.currentUserData?.gender; // Get gender from global data
+                    if (user.isAnonymous || userGender !== 'female') {
+                        console.log(`User is anonymous or not female (gender: ${userGender}), disabling Women Shield.`);
+                        if (womenShieldLink) {
+                            womenShieldLink.classList.add('disabled');
+                            womenShieldLink.style.color = ''; // Let CSS class handle it
+                        }
+                    } else {
+                        // User is signed up AND is female
+                        console.log('User is signed up and female, enabling Women Shield.');
+                        if (womenShieldLink) {
+                            womenShieldLink.classList.remove('disabled');
+                            womenShieldLink.style.color = 'var(--accent-color)'; // Restore color
+                        }
+                    }
+                    // --- END NEW ---
+
                     // --- NEW LOGIC TO SHOW CORRECT COMMUNITY VIEW ---
                     // --- FIX 2: These variables are now defined and this block will work ---
                     // --- HIDE ALL ROLE-SPECIFIC ELEMENTS FIRST ---
@@ -324,7 +358,7 @@
                     if (driverActions) driverActions.style.display = 'none';
                     if (emergencyActions) emergencyActions.style.display = 'none';
                     if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'none';
-                    
+
                     if (userRole === 'driver' || userRole === 'traveler' || userRole === 'emergency') {
                         // User is logged in AND has a role
                         communityLoginPrompt.style.display = 'none';
@@ -336,33 +370,33 @@
                         if (navUserInfo) navUserInfo.className = `dropdown profile-role-${userRole}`; // <!-- ADDED LINE -->
 
                         // --- NEW: Show correct action buttons ---
-                        if(userRole === 'traveler') {
-                            if(travelerActions) travelerActions.style.display = 'flex';
+                        if (userRole === 'traveler') {
+                            if (travelerActions) travelerActions.style.display = 'flex';
                         } else if (userRole === 'driver') {
-                            if(driverActions) driverActions.style.display = 'flex';
-                            if(onDutyToggleContainer) onDutyToggleContainer.style.display = 'flex';
+                            if (driverActions) driverActions.style.display = 'flex';
+                            if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'flex';
                         } else if (userRole === 'emergency') {
-                            if(emergencyActions) emergencyActions.style.display = 'flex';
-                            if(onDutyToggleContainer) onDutyToggleContainer.style.display = 'flex';
+                            if (emergencyActions) emergencyActions.style.display = 'flex';
+                            if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'flex';
                         }
-                        
+
                         // --- NEW: Set On Duty Toggle State ---
                         if (onDutyToggle) {
                             const onDuty = window.currentUserData.onDuty || false;
                             onDutyToggle.checked = onDuty;
                             onDutyStatusText.textContent = onDuty ? 'On Duty' : 'Off Duty';
                             onDutyStatusText.className = onDuty ? 'on-duty' : 'off-duty';
-                            
+
                             // --- NEW: Add event listener for duty toggle ---
                             // Remove old listener to avoid duplicates, then add new one
                             const newOnDutyToggle = onDutyToggle.cloneNode(true);
                             onDutyToggle.parentNode.replaceChild(newOnDutyToggle, onDutyToggle);
-                            
+
                             newOnDutyToggle.addEventListener('change', async () => {
                                 const isChecked = newOnDutyToggle.checked;
                                 onDutyStatusText.textContent = isChecked ? 'On Duty' : 'Off Duty';
                                 onDutyStatusText.className = isChecked ? 'on-duty' : 'off-duty';
-                                
+
                                 try {
                                     const userDocRef = doc(db, 'artifacts', appId, 'users', window.currentUserId);
                                     await updateDoc(userDocRef, { onDuty: isChecked });
@@ -411,6 +445,13 @@
                     if (navUserPhoto) navUserPhoto.src = 'https://placehold.co/40x40/ccc/eee?text=G'; // <-- ADDED: Reset photo
                     if (navUserInfo) navUserInfo.className = 'dropdown'; // <!-- ADDED LINE -->
 
+                    // --- NEW: Disable Women Shield Link ---
+                    if (womenShieldLink) {
+                        womenShieldLink.classList.add('disabled');
+                        womenShieldLink.style.color = ''; // Let CSS class handle it
+                    }
+                    // --- END NEW ---
+
                     window.currentUserId = null; // <-- NEW
                     window.currentUserData = {}; // <-- NEW
 
@@ -429,7 +470,7 @@
                     communityRegisterView.style.display = 'none';
                     communityProfileView.style.display = 'none';
                     communityProfileView.className = '';
-                    
+
                     // --- NEW: Hide all role-specific elements ---
                     if (travelerActions) travelerActions.style.display = 'none';
                     if (driverActions) driverActions.style.display = 'none';
@@ -544,6 +585,11 @@
                     emergencyMapContainer.style.display = 'none';
                     emergencyMapContainer.innerHTML = '';
                 }
+
+                // --- NEW: Reset gender buttons ---
+                document.querySelectorAll('.gender-btn.active').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('input[name="gender"]').forEach(input => input.value = '');
+                // --- END NEW ---
             };
 
             // Close Modal
@@ -558,6 +604,30 @@
                     closeModal();
                 }
             });
+
+            // --- NEW: Gender Button Logic ---
+            const setupGenderButtons = (groupId, inputId) => {
+                const group = document.getElementById(groupId);
+                const input = document.getElementById(inputId);
+                if (!group || !input) return;
+
+                const buttons = group.querySelectorAll('.gender-btn');
+                buttons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        // Remove active from all buttons in this group
+                        buttons.forEach(btn => btn.classList.remove('active'));
+                        // Add active to the clicked one
+                        button.classList.add('active');
+                        // Set the hidden input's value
+                        input.value = button.dataset.value;
+                    });
+                });
+            };
+
+            setupGenderButtons('traveler-gender-group', 'travelerGender');
+            setupGenderButtons('driver-gender-group', 'driverGender');
+            setupGenderButtons('emergency-gender-group', 'emergencyGender');
+            // --- END NEW ---
 
             // --- EVENT LISTENERS ---
 
@@ -708,7 +778,7 @@
                         }
                         return;
                     }
-                    
+
                     const submitBtn = driverForm.querySelector('.submit-btn');
                     submitBtn.disabled = true;
                     submitBtn.textContent = 'Registering...';
@@ -716,7 +786,7 @@
                     const formData = new FormData(driverForm);
                     const data = Object.fromEntries(formData.entries());
                     // --- REMOVED driverPhoto from data destructuring ---
-                    const { driverName, driverPhone, vehicleType, licensePlate, vehicleMake, vehicleModel, baseLocation } = data; // <-- FIX: Changed 'driverDestination' to 'baseLocation'
+                    const { driverName, driverPhone, vehicleType, licensePlate, vehicleMake, vehicleModel, baseLocation, gender } = data; // <-- FIX: Changed 'driverDestination' to 'baseLocation' & ADDED gender
 
                     try {
                         const userId = user.uid;
@@ -740,6 +810,7 @@
                             name: driverName,
                             phone: driverPhone,
                             role: 'driver', // Set the role
+                            gender: gender, // <-- NEW
                             photoUrl: photoUrl, // <-- CHANGED from photoFilename
                             vehicleType: vehicleType,
                             licensePlate: licensePlate,
@@ -792,7 +863,7 @@
                         }
                         return;
                     }
-                    
+
                     const submitBtn = travelerForm.querySelector('.submit-btn');
                     submitBtn.disabled = true;
                     submitBtn.textContent = 'Registering...';
@@ -800,7 +871,7 @@
                     const formData = new FormData(travelerForm);
                     const data = Object.fromEntries(formData.entries());
                     // --- REMOVED travelerPhoto from data destructuring ---
-                    const { travelerName, travelerPhone, travelerLocation } = data;
+                    const { travelerName, travelerPhone, travelerLocation, gender } = data; // <-- ADDED gender
 
                     try {
                         const userId = user.uid;
@@ -824,6 +895,7 @@
                             name: travelerName,
                             phone: travelerPhone,
                             role: 'traveler', // Set the role
+                            gender: gender, // <-- NEW
                             photoUrl: photoUrl, // <-- CHANGED from photoFilename
                             defaultLocation: travelerLocation, // <-- MODIFIED: Kept as defaultLocation
                             createdAt: new Date().toISOString()
@@ -870,7 +942,7 @@
                         }
                         return;
                     }
-                    
+
                     const submitBtn = emergencyForm.querySelector('.submit-btn');
                     submitBtn.disabled = true;
                     submitBtn.textContent = 'Registering...';
@@ -878,7 +950,7 @@
                     const formData = new FormData(emergencyForm);
                     const data = Object.fromEntries(formData.entries());
                     // --- REMOVED servicePhoto from data destructuring ---
-                    const { serviceType, serviceId, serviceName, servicePhone, serviceVehicleId, serviceVehicleType, baseLocation } = data; // <-- MODIFIED: Was 'emergencyDestination'
+                    const { serviceType, serviceId, serviceName, servicePhone, serviceVehicleId, serviceVehicleType, baseLocation, gender } = data; // <-- MODIFIED: Was 'emergencyDestination' & ADDED gender
 
                     try {
                         const userId = user.uid;
@@ -902,6 +974,7 @@
                             operatorName: serviceName,
                             phone: servicePhone,
                             role: 'emergency', // Set the role
+                            gender: gender, // <-- NEW
                             photoUrl: photoUrl, // <-- CHANGED from photoFilename
                             serviceType: serviceType,
                             serviceId: serviceId,
@@ -961,21 +1034,68 @@
             --accent-color: #ffcc00;
             --accent-hover: #e6b800;
             --border-color: #444;
-            
+
             /* --- NEW Role Colors --- */
             --traveler-color: #007bff;
             --traveler-hover: #0056b3;
             --traveler-bg: #f0f7ff;
-            
+
             --driver-color: #4CAF50;
             --driver-hover: #45a049;
             --driver-bg: #f0fff0;
-            
+
             --emergency-color: var(--primary-color);
             --emergency-hover: var(--hover-color);
             --emergency-bg: #fff0f0;
             /* --- END NEW --- */
         }
+
+        /* --- NEW: Gender Button Styles --- */
+        .gender-button-group {
+            display: flex;
+            gap: 10px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #ddd;
+        }
+
+        .gender-btn {
+            flex: 1;
+            background: #f9f9f9;
+            color: #555;
+            border: none;
+            padding: 12px 15px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .gender-btn:hover {
+            background: #f0f0f0;
+        }
+
+        .gender-btn.active {
+            color: white;
+        }
+
+        .gender-btn[data-value="male"].active {
+            background: var(--traveler-color);
+            /* Blue for male */
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+        }
+
+        .gender-btn[data-value="female"].active {
+            background: var(--primary-color);
+            /* Red/Pink for female */
+            box-shadow: 0 0 10px rgba(255, 77, 77, 0.3);
+        }
+
+        /* --- END NEW --- */
 
         * {
             box-sizing: border-box;
@@ -1272,85 +1392,23 @@
             left: 0;
         }
 
-        /* === END NEW === */
-
-        .nav-links li.dropdown:hover>a {
-            color: var(--primary-color);
+        /* --- NEW: Disabled Nav Link Style --- */
+        .nav-links a.disabled {
+            color: #888 !important;
+            /* Muted color */
+            cursor: not-allowed;
         }
 
-        .dropdown-menu {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background: rgba(34, 34, 34, 0.95);
-            min-width: 200px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-            list-style: none;
-            padding: 10px 0;
-            border-radius: 0 0 5px 5px;
-            z-index: 2000;
+        .nav-links a.disabled:hover {
+            color: #888 !important;
         }
 
-        .dropdown-menu li {
-            padding: 0;
-            width: 100%;
+        .nav-links a.disabled::after {
+            display: none !important;
+            /* No underline effect */
         }
 
-        .dropdown-menu a {
-            padding: 10px 20px;
-            display: block;
-            white-space: nowrap;
-            font-weight: 400;
-            color: #ccc;
-        }
-
-        .dropdown-menu a::after {
-            display: none;
-        }
-
-        .dropdown-menu a:hover {
-            color: var(--footer-accent);
-            background: rgba(255, 255, 255, 0.1);
-        }
-
-        .nav-links li.dropdown:hover .dropdown-menu {
-            display: block;
-        }
-
-        /* --- NEW: Profile Dropdown Menu Styles --- */
-        #nav-user-info {
-            cursor: pointer;
-            position: relative;
-            /* Needed for the dropdown */
-        }
-
-        /* === NEW: Profile Initial Circle Style === */
-        /* This now targets the IMG tag */
-        .nav-user-photo-class {
-            width: 38px;
-            height: 38px;
-            border-radius: 50%;
-            background: var(--primary-color);
-            /* Fallback bg */
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2em;
-            font-weight: 700;
-            font-family: 'Montserrat', sans-serif;
-            border: 2px solid #fff;
-            transition: all 0.3s ease;
-            object-fit: cover;
-            /* Ensures image covers the circle */
-            cursor: pointer;
-        }
-
-        #nav-user-info:hover .nav-user-photo-class {
-            transform: scale(1.1);
-            box-shadow: 0 0 10px rgba(255, 77, 77, 0.7);
-        }
+        /* --- END NEW --- */
 
         /* === END NEW === */
 
@@ -1632,8 +1690,10 @@
             box-shadow: 0 5px 25px rgba(0, 0, 0, 0.2);
             transform: scale(0.95);
             transition: transform 0.3s ease;
-            max-height: 90vh; /* <-- NEW */
-            overflow-y: auto; /* <-- NEW */
+            max-height: 90vh;
+            /* <-- NEW */
+            overflow-y: auto;
+            /* <-- NEW */
         }
 
         .profile-modal-overlay.active .profile-modal-content {
@@ -1657,21 +1717,24 @@
             color: var(--primary-color) !important;
             border-bottom: 2px solid #eee !important;
         }
-        
+
         /* --- NEW: Modal Role-Specific Header Colors --- */
         #book-ride-modal .profile-modal-content h2 {
             color: var(--traveler-color) !important;
             border-bottom-color: var(--traveler-color) !important;
         }
+
         #ride-requests-modal .profile-modal-content h2 {
             color: var(--driver-color) !important;
             border-bottom-color: var(--driver-color) !important;
         }
+
         #active-alerts-modal .profile-modal-content h2,
         #priority-route-modal .profile-modal-content h2 {
             color: var(--emergency-color) !important;
             border-bottom-color: var(--emergency-color) !important;
         }
+
         /* --- END NEW --- */
 
 
@@ -1772,10 +1835,10 @@
             cursor: pointer;
             transition: all 0.3s ease;
         }
-        
+
         .submit-review-btn:disabled {
-             background: #ccc;
-             cursor: not-allowed;
+            background: #ccc;
+            cursor: not-allowed;
         }
 
         .submit-review-btn:hover:not(:disabled) {
@@ -1939,17 +2002,19 @@
             border-radius: 8px;
             margin-top: 20px;
         }
-        
+
         /* Use existing form styles */
         #add-money-section .form-group {
-             margin-bottom: 20px;
+            margin-bottom: 20px;
         }
+
         #add-money-section .form-group label {
             display: block;
             margin-bottom: 8px;
             color: var(--secondary-color);
             font-weight: 600;
         }
+
         #add-money-section .form-group input {
             width: 100%;
             padding: 12px 15px;
@@ -1957,11 +2022,13 @@
             border-radius: 8px;
             font-size: 1em;
         }
+
         #add-money-section .form-group input:focus {
             border-color: var(--primary-color);
             outline: none;
             box-shadow: 0 0 5px rgba(255, 77, 77, 0.3);
         }
+
         /* --- */
 
         #payment-modal h4 {
@@ -2072,7 +2139,7 @@
             font-weight: 700;
             color: var(--secondary-color);
         }
-        
+
         /* --- NEW: Styles for Ride Requests & Alerts Modals --- */
         .modal-list {
             list-style: none;
@@ -2081,6 +2148,7 @@
             max-height: 350px;
             overflow-y: auto;
         }
+
         .modal-list-item {
             display: flex;
             gap: 15px;
@@ -2090,28 +2158,35 @@
             margin-bottom: 10px;
             background: #f9f9f9;
         }
+
         .modal-list-item .icon {
             font-size: 1.8em;
             flex-shrink: 0;
         }
+
         .modal-list-item .details {
             flex-grow: 1;
         }
+
         .modal-list-item .details p {
             font-size: 1em;
             font-weight: 600;
             color: #333;
             margin: 0;
         }
+
         .modal-list-item .details span {
             font-size: 0.9em;
             color: #777;
             display: block;
             line-height: 1.4;
         }
-        
+
         /* Ride Request Item */
-        .ride-request-item .icon { color: var(--traveler-color); }
+        .ride-request-item .icon {
+            color: var(--traveler-color);
+        }
+
         .ride-request-item .accept-btn {
             background: var(--driver-color);
             color: white;
@@ -2123,21 +2198,29 @@
             transition: background 0.3s;
             align-self: center;
         }
-        .ride-request-item .accept-btn:hover { background: var(--driver-hover); }
-        
+
+        .ride-request-item .accept-btn:hover {
+            background: var(--driver-hover);
+        }
+
         /* Alert Item */
-        .alert-item .icon { color: var(--emergency-color); }
+        .alert-item .icon {
+            color: var(--emergency-color);
+        }
+
         .alert-item .details span {
             font-weight: 600;
             color: #555;
         }
+
         .alert-item .details .timestamp {
             font-size: 0.8em;
             font-weight: normal;
             color: #888;
         }
+
         /* --- END NEW --- */
-        
+
 
         /* --- NEW: Styles for Safety Modal --- */
         .safety-features {
@@ -2745,7 +2828,8 @@
 
         /* === NEW: Password Instructions Styles === */
         .password-instructions {
-            display: block; /* MODIFIED: Was 'none', now always visible */
+            display: block;
+            /* MODIFIED: Was 'none', now always visible */
             background: #f9f9f9;
             border: 1px solid #eee;
             border-radius: 8px;
@@ -2774,7 +2858,8 @@
         }
 
         .password-instructions li::before {
-            content: '\f00d'; /* fas fa-times */
+            content: '\f00d';
+            /* fas fa-times */
             font-family: "Font Awesome 6 Free";
             font-weight: 900;
             position: absolute;
@@ -2790,10 +2875,12 @@
         }
 
         .password-instructions li.valid::before {
-            content: '\f00c'; /* fas fa-check */
+            content: '\f00c';
+            /* fas fa-check */
             color: #4CAF50;
             transform: scale(1.1);
         }
+
         /* === END NEW === */
 
         /* === NEW: Hide wrappers by default === */
@@ -2904,7 +2991,7 @@
             transition: all 0.3s ease;
             margin-top: 10px;
         }
-        
+
         .submit-btn:disabled {
             background: #ccc;
             cursor: not-allowed;
@@ -3372,7 +3459,7 @@
             text-align: center;
             font-weight: 600;
         }
-        
+
         /* --- NEW: Form Error for Modals --- */
         .modal-form-error {
             color: var(--primary-color);
@@ -3381,10 +3468,12 @@
             border-radius: 8px;
             padding: 10px 15px;
             margin-top: 15px;
-            display: none; /* Hidden by default */
+            display: none;
+            /* Hidden by default */
             text-align: center;
             font-weight: 600;
         }
+
         /* --- END NEW --- */
 
         /* === NEW: Circular Photo Uploader === */
@@ -3540,25 +3629,34 @@
         .profile-view-guest #community-profile-name {
             color: var(--secondary-color);
         }
-        
+
         /* --- NEW: Role Action Buttons --- */
         .profile-action-buttons {
             margin-top: 25px;
             padding-top: 25px;
             border-top: 2px dashed #ccc;
         }
-        
-        .profile-view-traveler .profile-action-buttons { border-top-color: var(--traveler-color); }
-        .profile-view-driver .profile-action-buttons { border-top-color: var(--driver-color); }
-        .profile-view-emergency .profile-action-buttons { border-top-color: var(--emergency-color); }
-        
+
+        .profile-view-traveler .profile-action-buttons {
+            border-top-color: var(--traveler-color);
+        }
+
+        .profile-view-driver .profile-action-buttons {
+            border-top-color: var(--driver-color);
+        }
+
+        .profile-view-emergency .profile-action-buttons {
+            border-top-color: var(--emergency-color);
+        }
+
         .role-actions {
-            display: flex; /* Will be set to 'flex' by JS */
+            display: flex;
+            /* Will be set to 'flex' by JS */
             flex-wrap: wrap;
             gap: 15px;
             justify-content: center;
         }
-        
+
         .profile-btn {
             background: var(--secondary-color);
             color: white;
@@ -3573,44 +3671,69 @@
             align-items: center;
             gap: 8px;
             text-decoration: none;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
         }
-        
+
         .profile-btn i {
             font-size: 1.1em;
         }
-        
+
         .profile-btn:hover {
             transform: translateY(-3px);
-            box-shadow: 0 6px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
         }
-        
-        .profile-btn-traveler { background-color: var(--traveler-color); }
-        .profile-btn-traveler:hover { background-color: var(--traveler-hover); }
-        
-        .profile-btn-driver { background-color: var(--driver-color); }
-        .profile-btn-driver:hover { background-color: var(--driver-hover); }
 
-        .profile-btn-emergency { background-color: var(--emergency-color); }
-        .profile-btn-emergency:hover { background-color: var(--emergency-hover); }
-        
+        .profile-btn-traveler {
+            background-color: var(--traveler-color);
+        }
+
+        .profile-btn-traveler:hover {
+            background-color: var(--traveler-hover);
+        }
+
+        .profile-btn-driver {
+            background-color: var(--driver-color);
+        }
+
+        .profile-btn-driver:hover {
+            background-color: var(--driver-hover);
+        }
+
+        .profile-btn-emergency {
+            background-color: var(--emergency-color);
+        }
+
+        .profile-btn-emergency:hover {
+            background-color: var(--emergency-hover);
+        }
+
         /* --- NEW: On Duty Toggle --- */
         .on-duty-toggle-container {
-            display: flex; /* Hidden by default */
+            display: flex;
+            /* Hidden by default */
             align-items: center;
             justify-content: center;
             gap: 15px;
             margin-bottom: 20px;
         }
-        
+
         #on-duty-status-text {
             font-size: 1.1em;
             font-weight: 600;
             transition: color 0.3s ease;
         }
-        #on-duty-status-text.on-duty { color: var(--driver-color); }
-        #on-duty-status-text.off-duty { color: #777; }
-        .profile-view-emergency #on-duty-status-text.on-duty { color: var(--emergency-color); }
+
+        #on-duty-status-text.on-duty {
+            color: var(--driver-color);
+        }
+
+        #on-duty-status-text.off-duty {
+            color: #777;
+        }
+
+        .profile-view-emergency #on-duty-status-text.on-duty {
+            color: var(--emergency-color);
+        }
 
         .duty-toggle {
             position: relative;
@@ -3618,11 +3741,13 @@
             width: 60px;
             height: 34px;
         }
+
         .duty-toggle input {
             opacity: 0;
             width: 0;
             height: 0;
         }
+
         .duty-toggle-slider {
             position: absolute;
             cursor: pointer;
@@ -3634,6 +3759,7 @@
             transition: .4s;
             border-radius: 34px;
         }
+
         .duty-toggle-slider:before {
             position: absolute;
             content: "";
@@ -3645,15 +3771,19 @@
             transition: .4s;
             border-radius: 50%;
         }
-        input:checked + .duty-toggle-slider {
+
+        input:checked+.duty-toggle-slider {
             background-color: var(--driver-color);
         }
-        .profile-view-emergency input:checked + .duty-toggle-slider {
-             background-color: var(--emergency-color);
+
+        .profile-view-emergency input:checked+.duty-toggle-slider {
+            background-color: var(--emergency-color);
         }
-        input:checked + .duty-toggle-slider:before {
+
+        input:checked+.duty-toggle-slider:before {
             transform: translateX(26px);
         }
+
         /* --- END NEW --- */
 
         /* === END NEW PROFILE STYLES === */
@@ -3827,7 +3957,8 @@
             </li>
             <li><a href="Quiz.html">Quiz</a></li>
             <!-- === NEW: Women Shield Link === -->
-            <li><a href="Women Shield.html" style="color: var(--accent-color);"><i class="fas fa-shield-alt"></i> Women Shield</a></li>
+            <li><a href="Women Shield.html" id="nav-women-shield-link" style="color: var(--accent-color);"><i
+                        class="fas fa-shield-alt"></i> Women Shield</a></li>
             <!-- === END NEW === -->
             <li class="dropdown">
                 <a href="#why-AI-traffic-lights" aria-expanded="false" aria-haspopup="true">Why AI Traffic Lights <i
@@ -4051,7 +4182,7 @@
             <div id="community-profile-view" style="display: none;"> <!-- Class will be added by JS -->
                 <h2><i class="fas fa-user-check"></i> Welcome to the Community!</h2>
                 <p style="font-size: 1.2em;">You are logged in as: <strong id="community-profile-name"></strong></p>
-                
+
                 <!-- === NEW: On Duty Toggle === -->
                 <div id="on-duty-toggle-container" class="on-duty-toggle-container" style="display: none;">
                     <span id="on-duty-status-text" class="off-duty">Off Duty</span>
@@ -4061,7 +4192,7 @@
                     </label>
                 </div>
                 <!-- === END NEW === -->
-                
+
                 <!-- === NEW: Role Action Buttons === -->
                 <div class="profile-action-buttons">
                     <!-- Traveler Buttons -->
@@ -4081,7 +4212,8 @@
                         <button id="view-active-alerts-btn" class="profile-btn profile-btn-emergency">
                             <i class="fas fa-exclamation-triangle"></i> View Active Alerts
                         </button>
-                        <button id="get-priority-route-btn" class="profile-btn profile-btn-emergency" style="background-color: #555;">
+                        <button id="get-priority-route-btn" class="profile-btn profile-btn-emergency"
+                            style="background-color: #555;">
                             <i class="fas fa-route"></i> Get Priority Route
                         </button>
                     </div>
@@ -4175,9 +4307,11 @@
                         <input type="email" id="signupEmail" name="signupEmail" required>
                     </div>
                     <div class="form-group">
-                        <label for="signupPassword"><i class="fas fa-lock"></i>Password</label> <!-- MODIFIED: Removed text -->
-                        <input type="password" id="signupPassword" name="signupPassword" required minlength="8"> <!-- MODIFIED: minlength 8 -->
-                        
+                        <label for="signupPassword"><i class="fas fa-lock"></i>Password</label>
+                        <!-- MODIFIED: Removed text -->
+                        <input type="password" id="signupPassword" name="signupPassword" required minlength="8">
+                        <!-- MODIFIED: minlength 8 -->
+
                         <!-- NEW: Password Instructions -->
                         <div id="password-instructions" class="password-instructions">
                             <h4>Password must contain:</h4>
@@ -4230,6 +4364,18 @@
                         <label for="driverPhone"><i class="fas fa-phone"></i>Phone Number</label>
                         <input type="tel" id="driverPhone" name="driverPhone" required>
                     </div>
+                    <!-- === NEW: Gender === -->
+                    <div class="form-group">
+                        <label><i class="fas fa-venus-mars"></i>Gender</label>
+                        <div class="gender-button-group" id="driver-gender-group">
+                            <button type="button" class="gender-btn" data-value="male"><i class="fas fa-mars"></i>
+                                Male</button>
+                            <button type="button" class="gender-btn" data-value="female"><i class="fas fa-venus"></i>
+                                Female</button>
+                        </div>
+                        <input type="hidden" id="driverGender" name="gender" value="">
+                    </div>
+                    <!-- === END NEW === -->
                     <!-- === REMOVED OLD PHOTO INPUT === -->
 
                     <h3
@@ -4266,9 +4412,10 @@
                         style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
                         Trip Details</h3>
                     <div class="form-group">
-                        <label for="baseLocation"><i class="fas fa-map-marker-alt"></i>Base Location / City</label> <!-- <-- MODIFIED -->
+                        <label for="baseLocation"><i class="fas fa-map-marker-alt"></i>Base Location / City</label>
+                        <!-- <-- MODIFIED -->
                         <input type="text" id="baseLocation" name="baseLocation" <!-- <-- MODIFIED -->
-                            placeholder="e.g., Gurugram"> <!-- <-- MODIFIED -->
+                        placeholder="e.g., Gurugram"> <!-- <-- MODIFIED -->
                     </div>
                     <!-- New Map Preview Button -->
                     <button type="button" id="previewDriverMapBtn" class="submit-btn map-preview-btn">
@@ -4309,6 +4456,18 @@
                         <label for="travelerPhone"><i class="fas fa-phone"></i>Phone Number</label>
                         <input type="tel" id="travelerPhone" name="travelerPhone" required>
                     </div>
+                    <!-- === NEW: Gender === -->
+                    <div class="form-group">
+                        <label><i class="fas fa-venus-mars"></i>Gender</label>
+                        <div class="gender-button-group" id="traveler-gender-group">
+                            <button type="button" class="gender-btn" data-value="male"><i class="fas fa-mars"></i>
+                                Male</button>
+                            <button type="button" class="gender-btn" data-value="female"><i class="fas fa-venus"></i>
+                                Female</button>
+                        </div>
+                        <input type="hidden" id="travelerGender" name="gender" value="">
+                    </div>
+                    <!-- === END NEW === -->
                     <!-- === REMOVED OLD PHOTO INPUT === -->
                     <div class="form-group">
                         <label for="travelerLocation"><i class="fas fa-map-marker-alt"></i>Default Pickup Location
@@ -4365,6 +4524,18 @@
                         <label for="servicePhone"><i class="fas fa-phone-alt"></i>Dispatch Phone</label>
                         <input type="tel" id="servicePhone" name="servicePhone" required>
                     </div>
+                    <!-- === NEW: Gender === -->
+                    <div class="form-group">
+                        <label><i class="fas fa-venus-mars"></i>Gender</label>
+                        <div class="gender-button-group" id="emergency-gender-group">
+                            <button type="button" class="gender-btn" data-value="male"><i class="fas fa-mars"></i>
+                                Male</button>
+                            <button type="button" class="gender-btn" data-value="female"><i class="fas fa-venus"></i>
+                                Female</button>
+                        </div>
+                        <input type="hidden" id="emergencyGender" name="gender" value="">
+                    </div>
+                    <!-- === END NEW === -->
                     <!-- === REMOVED OLD PHOTO INPUT === -->
 
                     <h3
@@ -4386,9 +4557,10 @@
                         style="font-weight: 600; color: #333; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">
                         Routing Details</h3>
                     <div class="form-group">
-                        <label for="baseLocation"><i class="fas fa-map-marked-alt"></i>Base Location / City</label> <!-- <-- MODIFIED -->
+                        <label for="baseLocation"><i class="fas fa-map-marked-alt"></i>Base Location / City</label>
+                        <!-- <-- MODIFIED -->
                         <input type="text" id="baseLocation" name="baseLocation" <!-- <-- MODIFIED -->
-                            placeholder="e.g., Gurugram"> <!-- <-- MODIFIED -->
+                        placeholder="e.g., Gurugram"> <!-- <-- MODIFIED -->
                     </div>
                     <!-- New Map Preview Button -->
                     <button type="button" id="previewEmergencyMapBtn" class="submit-btn map-preview-btn">
@@ -4668,7 +4840,7 @@
                 built)</p>
         </div>
     </div>
-    
+
     <!-- === NEW: ROLE-SPECIFIC MODALS === -->
 
     <!-- 1. Book a Ride Modal (Traveler) -->
@@ -4680,11 +4852,13 @@
             <form id="book-ride-form" style="margin-top: 20px;">
                 <div class="form-group">
                     <label for="pickup-location"><i class="fas fa-map-marker-alt"></i> From:</label>
-                    <input type="text" id="pickup-location" name="pickup-location" placeholder="Enter pickup location" required>
+                    <input type="text" id="pickup-location" name="pickup-location" placeholder="Enter pickup location"
+                        required>
                 </div>
                 <div class="form-group">
                     <label for="dropoff-location"><i class="fas fa-map-pin"></i> To:</label>
-                    <input type="text" id="dropoff-location" name="dropoff-location" placeholder="Enter destination" required>
+                    <input type="text" id="dropoff-location" name="dropoff-location" placeholder="Enter destination"
+                        required>
                 </div>
                 <div class="form-group">
                     <label for="ride-vehicle-type"><i class="fas fa-car-side"></i> Vehicle Type:</label>
@@ -4699,7 +4873,7 @@
             </form>
         </div>
     </div>
-    
+
     <!-- 2. Ride Requests Modal (Driver) -->
     <div id="ride-requests-modal" class="profile-modal-overlay">
         <div class="profile-modal-content">
@@ -4708,7 +4882,9 @@
             <p>Available ride requests from travelers. New requests will appear here.</p>
             <ul id="ride-requests-list" class="modal-list">
                 <!-- Populated by JS -->
-                <li><p>Loading requests...</p></li>
+                <li>
+                    <p>Loading requests...</p>
+                </li>
             </ul>
         </div>
     </div>
@@ -4719,13 +4895,15 @@
             <span class="profile-modal-close">&times;</span>
             <h2><i class="fas fa-exclamation-triangle"></i> Active Alerts</h2>
             <p>Real-time alerts reported by community members and drivers.</p>
-             <ul id="active-alerts-list" class="modal-list">
+            <ul id="active-alerts-list" class="modal-list">
                 <!-- Populated by JS -->
-                <li><p>Loading alerts...</p></li>
+                <li>
+                    <p>Loading alerts...</p>
+                </li>
             </ul>
         </div>
     </div>
-    
+
     <!-- 4. Priority Route Modal (Emergency) -->
     <div id="priority-route-modal" class="profile-modal-overlay">
         <div class="profile-modal-content">
@@ -4735,11 +4913,13 @@
             <form id="priority-route-form" style="margin-top: 20px;">
                 <div class="form-group">
                     <label for="incident-location"><i class="fas fa-map-marker-alt"></i> From (Your Location):</label>
-                    <input type="text" id="incident-location" name="incident-location" placeholder="e.g., City Hospital" required>
+                    <input type="text" id="incident-location" name="incident-location" placeholder="e.g., City Hospital"
+                        required>
                 </div>
                 <div class="form-group">
                     <label for="incident-destination"><i class="fas fa-map-pin"></i> To (Incident Location):</label>
-                    <input type="text" id="incident-destination" name="incident-destination" placeholder="Enter incident address" required>
+                    <input type="text" id="incident-destination" name="incident-destination"
+                        placeholder="Enter incident address" required>
                 </div>
                 <div id="priority-route-error" class="modal-form-error"></div>
                 <button type="submit" class="submit-btn emergency-btn">Generate Route</button>
@@ -4868,7 +5048,7 @@
 
                 alertModal.classList.add('active');
             };
-            
+
             // --- NEW: Make showAlert global ---
             window.showAlert = showAlert;
 
@@ -5042,19 +5222,19 @@
             // --- NEW: Password Validation UI Logic ---
             const signupPasswordInput = document.getElementById('signupPassword');
             const passwordInstructions = document.getElementById('password-instructions');
-            
+
             if (signupPasswordInput && passwordInstructions) {
                 const passLength = document.getElementById('pass-length');
                 const passLower = document.getElementById('pass-lower'); // MODIFIED
                 const passUpper = document.getElementById('pass-upper'); // MODIFIED
                 const passNumber = document.getElementById('pass-number');
                 const passSpecial = document.getElementById('pass-special');
-                
+
                 // Show instructions on focus - REMOVED
                 // signupPasswordInput.addEventListener('focus', () => {
                 //     passwordInstructions.style.display = 'block';
                 // });
-                
+
                 // Hide instructions on blur (optional, you might want to keep it visible)
                 // signupPasswordInput.addEventListener('blur', () => {
                 //     passwordInstructions.style.display = 'none';
@@ -5063,35 +5243,35 @@
                 // Validate as user types
                 signupPasswordInput.addEventListener('input', () => {
                     const password = signupPasswordInput.value;
-                    
+
                     // Check length
                     if (password.length >= 8) {
                         passLength.classList.add('valid');
                     } else {
                         passLength.classList.remove('valid');
                     }
-                    
+
                     // Check for lowercase letter
                     if (/[a-z]/.test(password)) {
                         passLower.classList.add('valid');
                     } else {
                         passLower.classList.remove('valid');
                     }
-                    
+
                     // Check for uppercase letter
                     if (/[A-Z]/.test(password)) {
                         passUpper.classList.add('valid');
                     } else {
                         passUpper.classList.remove('valid');
                     }
-                    
+
                     // Check for number
                     if (/\d/.test(password)) {
                         passNumber.classList.add('valid');
                     } else {
                         passNumber.classList.remove('valid');
                     }
-                    
+
                     // Check for special character
                     if (/[^a-zA-Z0-9]/.test(password)) {
                         passSpecial.classList.add('valid');
@@ -5138,14 +5318,14 @@
                 if (closeBtn) {
                     closeBtn.addEventListener('click', () => {
                         modal.classList.remove('active');
-                        
+
                         // --- NEW: Detach listeners on close ---
-                        if(modal.id === 'ride-requests-modal' && window.rideRequestsListener) {
+                        if (modal.id === 'ride-requests-modal' && window.rideRequestsListener) {
                             window.rideRequestsListener(); // Detach
                             window.rideRequestsListener = null;
                             console.log('Detached ride requests listener.');
                         }
-                        if(modal.id === 'active-alerts-modal' && window.activeAlertsListener) {
+                        if (modal.id === 'active-alerts-modal' && window.activeAlertsListener) {
                             window.activeAlertsListener(); // Detach
                             window.activeAlertsListener = null;
                             console.log('Detached active alerts listener.');
@@ -5157,14 +5337,14 @@
                 modal.addEventListener('click', (e) => {
                     if (e.target === modal) {
                         modal.classList.remove('active');
-                        
+
                         // --- NEW: Detach listeners on close ---
-                        if(modal.id === 'ride-requests-modal' && window.rideRequestsListener) {
+                        if (modal.id === 'ride-requests-modal' && window.rideRequestsListener) {
                             window.rideRequestsListener(); // Detach
                             window.rideRequestsListener = null;
                             console.log('Detached ride requests listener.');
                         }
-                        if(modal.id === 'active-alerts-modal' && window.activeAlertsListener) {
+                        if (modal.id === 'active-alerts-modal' && window.activeAlertsListener) {
                             window.activeAlertsListener(); // Detach
                             window.activeAlertsListener = null;
                             console.log('Detached active alerts listener.');
@@ -5253,10 +5433,10 @@
                             comment: reviewComment,
                             createdAt: new Date().toISOString()
                         };
-                        
+
                         // Add to a PUBLIC 'reviews' collection
                         const reviewsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'reviews');
-                        
+
                         // To prevent spam, let's set the doc ID as the user's ID.
                         // This means a user can only have ONE review.
                         // When they submit again, it just overwrites their old one.
@@ -5532,9 +5712,9 @@
                         showAlert('Error', 'Cannot share ride. You are not logged in.', 'error');
                         return;
                     }
-                    
+
                     const tripId = `SRT-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
-                    
+
                     showAlert('Sharing Ride...', 'Activating your live trip...', 'info');
 
                     try {
@@ -5547,11 +5727,11 @@
                             // In a real app, this would update with live location data
                             lastLocation: window.currentUserData.defaultLocation || 'Unknown'
                         };
-                        
+
                         // Add to a PRIVATE 'shared-trips' collection for this user
                         const shareColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'users', window.currentUserId, 'shared-trips');
                         await window.fs.addDoc(shareColRef, shareData);
-                        
+
                         showAlert('Ride Sharing Active!', `Your trip (ID: <strong>${tripId}</strong>) is now being shared with your trusted contacts. (This is a demo)`, 'success');
 
                     } catch (error) {
@@ -5571,7 +5751,7 @@
 
                     const user = window.currentUserData;
                     const location = user.defaultLocation || user.destination || 'Unknown (User has no default location)';
-                    
+
                     showAlert('Sending SOS...', 'Contacting emergency services...', 'warning');
 
                     try {
@@ -5583,11 +5763,11 @@
                             location: location,
                             timestamp: new Date().toISOString()
                         };
-                        
+
                         // Add to the PUBLIC 'sos-alerts' collection
                         const sosColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'sos-alerts');
                         await window.fs.addDoc(sosColRef, sosAlertData);
-                        
+
                         showAlert('SOS ACTIVATED!', 'Your location and details have been sent to emergency services and trusted contacts.', 'error');
 
                     } catch (error) {
@@ -5618,14 +5798,14 @@
 
             // --- MODIFIED: Make Refer Share buttons functional ---
             const referralCodeInput = document.getElementById('referral-code');
-            
+
             const getShareText = () => {
                 const code = referralCodeInput ? referralCodeInput.value : 'LOGIN-TO-SEE-CODE';
                 return encodeURIComponent(`Join me on SafeReturn! It's a great app for road safety. Use my code ${code} to sign up and get a reward! #SafeReturn`);
             };
 
             const shareWhatsappBtn = document.getElementById('share-whatsapp');
-            if(shareWhatsappBtn) {
+            if (shareWhatsappBtn) {
                 shareWhatsappBtn.addEventListener('click', (e) => {
                     if (!window.currentUserId) {
                         e.preventDefault();
@@ -5638,7 +5818,7 @@
             }
 
             const shareTwitterBtn = document.getElementById('share-twitter');
-            if(shareTwitterBtn) {
+            if (shareTwitterBtn) {
                 shareTwitterBtn.addEventListener('click', (e) => {
                     if (!window.currentUserId) {
                         e.preventDefault();
@@ -5651,7 +5831,7 @@
             }
 
             const shareFacebookBtn = document.getElementById('share-facebook');
-            if(shareFacebookBtn) {
+            if (shareFacebookBtn) {
                 shareFacebookBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     if (!window.currentUserId) {
@@ -5664,7 +5844,7 @@
             }
 
             const shareSmsBtn = document.getElementById('share-sms');
-            if(shareSmsBtn) {
+            if (shareSmsBtn) {
                 shareSmsBtn.addEventListener('click', (e) => {
                     if (!window.currentUserId) {
                         e.preventDefault();
@@ -5909,7 +6089,7 @@
             const bookRideModal = document.getElementById('book-ride-modal');
             const bookRideForm = document.getElementById('book-ride-form');
             const bookRideError = document.getElementById('book-ride-error');
-            
+
             // --- 4. Emergency: Priority Route ---
             const priorityRouteBtn = document.getElementById('get-priority-route-btn');
             const priorityRouteModal = document.getElementById('priority-route-modal');
@@ -5960,10 +6140,10 @@
                         // Add to the PUBLIC 'ride-requests' collection
                         const rideRequestsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests');
                         await window.fs.addDoc(rideRequestsColRef, rideRequestData);
-                        
+
                         showAlert('Request Sent!', `Your ride request from ${from} to ${to} has been sent to nearby drivers.`, 'success'); // <-- MODIFIED: Updated alert
-                        
-                        if(bookRideModal) bookRideModal.classList.remove('active');
+
+                        if (bookRideModal) bookRideModal.classList.remove('active');
                         bookRideForm.reset();
 
                     } catch (error) {
@@ -5978,7 +6158,7 @@
                     }
                 });
             }
-            
+
             if (priorityRouteBtn && priorityRouteModal) {
                 priorityRouteBtn.addEventListener('click', () => {
                     priorityRouteModal.classList.add('active');
@@ -5995,10 +6175,10 @@
             if (priorityRouteForm) {
                 priorityRouteForm.addEventListener('submit', (e) => {
                     e.preventDefault();
-                    
+
                     const from = priorityRouteForm['incident-location'].value;
                     const to = priorityRouteForm['incident-destination'].value;
-                    
+
                     if (!from || !to) {
                         if (priorityRouteError) {
                             priorityRouteError.textContent = 'Please fill in both locations.';
@@ -6006,14 +6186,14 @@
                         }
                         return;
                     }
-                    
+
                     if (priorityRouteError) priorityRouteError.style.display = 'none';
 
                     // --- MODIFIED: Link route to phone number (simulation) ---
                     const submitBtn = priorityRouteForm.querySelector('.submit-btn');
                     submitBtn.disabled = true;
                     submitBtn.textContent = 'Generating...';
-                    
+
                     // Get phone number
                     const phone = window.currentUserData?.phone || 'your registered number';
                     // Create Google Maps link
@@ -6021,8 +6201,8 @@
 
                     setTimeout(() => {
                         showAlert(
-                            'Route Generated!', 
-                            `An AI-optimized route has been sent via SMS to <strong>${phone}</strong>.<br/><br/><a href="${mapsLink}" target="_blank" style="color: var(--primary-color); text-decoration: underline; font-weight: 600;">Click Here to View Route Now</a><br/><br/>(This is a demo)`, 
+                            'Route Generated!',
+                            `An AI-optimized route has been sent via SMS to <strong>${phone}</strong>.<br/><br/><a href="${mapsLink}" target="_blank" style="color: var(--primary-color); text-decoration: underline; font-weight: 600;">Click Here to View Route Now</a><br/><br/>(This is a demo)`,
                             'success'
                         );
                         if (priorityRouteModal) priorityRouteModal.classList.remove('active');
@@ -6033,7 +6213,7 @@
                     // --- END MODIFICATION ---
                 });
             }
-            
+
             // --- FIX: This block was incorrectly nested and duplicated ---
             // --- FIX 2: Corrected selector from .payment-method to .saved-payment-method ---
             const paymentModal = document.getElementById('payment-modal');
@@ -6054,23 +6234,23 @@
                 });
             }
             // --- END FIX ---
-            
-            
+
+
             // --- NEW: Add listeners for ride/alert population functions ---
-            
+
             // --- Populate Ride Requests (Driver) ---
             const populateAndListenForRideRequests = () => {
                 const requestsListEl = document.getElementById('ride-requests-list');
                 if (!requestsListEl) return;
-                
+
                 if (!window.db || !window.fs || !window.currentUserId || !window.currentUserData?.onDuty) {
                     requestsListEl.innerHTML = '<li><p>You must be logged in and "On Duty" to see ride requests.</p></li>';
                     return;
                 }
-                
+
                 // --- NEW: Get driver's locality ---
                 const driverLocality = window.currentUserData.baseLocation ? window.currentUserData.baseLocation.toLowerCase() : '';
-                
+
                 if (!driverLocality) {
                     requestsListEl.innerHTML = '<li><p>Please update your profile with a "Base Location / City" to see local requests.</p></li>';
                     return;
@@ -6082,27 +6262,27 @@
                     window.rideRequestsListener(); // Call the unsubscribe function
                     window.rideRequestsListener = null;
                 }
-                
+
                 requestsListEl.innerHTML = '<li><p>Listening for new ride requests...</p></li>';
-                
+
                 const requestsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests');
                 // Query for pending requests
                 const q = window.fs.query(requestsColRef, window.fs.where('status', '==', 'pending'));
-                
+
                 // Save the unsubscribe function returned by onSnapshot
                 window.rideRequestsListener = window.fs.onSnapshot(q, (querySnapshot) => {
-                    
+
                     requestsListEl.innerHTML = ''; // Clear list
                     let requestsFound = 0; // --- NEW: Counter for filtered requests ---
 
                     querySnapshot.forEach(doc => {
                         const request = doc.data();
-                        
+
                         // --- NEW: Filter by locality ---
                         const requestLocation = request.from ? request.from.toLowerCase() : '';
                         if (requestLocation.includes(driverLocality)) {
                             requestsFound++;
-                        // --- END NEW ---
+                            // --- END NEW ---
 
                             const requestEl = document.createElement('li');
                             requestEl.className = 'modal-list-item ride-request-item';
@@ -6112,25 +6292,25 @@
                             <button class="accept-btn" data-id="${doc.id}">Accept</button>
                         `;
                             requestsListEl.appendChild(requestEl);
-                            
-                        // --- NEW: Close filter condition ---
+
+                            // --- NEW: Close filter condition ---
                         }
                         // --- END NEW ---
                     });
-                    
+
                     // --- NEW: Check if any requests were found *after* filtering ---
                     if (requestsFound === 0) {
                         requestsListEl.innerHTML = '<li><p>No pending ride requests found in your locality.</p></li>';
                     }
                     // --- END NEW ---
-                    
+
                     // Add listeners to new accept buttons
                     requestsListEl.querySelectorAll('.accept-btn').forEach(btn => {
                         btn.addEventListener('click', async (e) => {
                             const requestId = e.target.dataset.id;
                             e.target.disabled = true;
                             e.target.textContent = 'Accepting...';
-                            
+
                             try {
                                 const requestDocRef = window.fs.doc(window.db, 'artifacts', window.appId, 'public', 'data', 'ride-requests', requestId);
                                 await window.fs.updateDoc(requestDocRef, {
@@ -6148,54 +6328,54 @@
                             }
                         });
                     });
-                    
+
                 }, (error) => {
                     console.error("Error listening to ride requests:", error);
                     requestsListEl.innerHTML = `<li><p>Error loading requests: ${error.message}</p></li>`;
                 });
             };
-            
+
             // --- Populate Active Alerts (Emergency) ---
             const populateAndListenForActiveAlerts = () => {
                 const alertsListEl = document.getElementById('active-alerts-list');
                 if (!alertsListEl) return;
-                
+
                 if (!window.db || !window.fs || !window.currentUserId || !window.currentUserData?.onDuty) {
                     alertsListEl.innerHTML = '<li><p>You must be logged in and "On Duty" to see active alerts.</p></li>';
                     return;
                 }
-                
+
                 // Detach old listener
                 if (window.activeAlertsListener) {
                     window.activeAlertsListener(); // Call the unsubscribe function
                     window.activeAlertsListener = null;
                 }
-                
+
                 alertsListEl.innerHTML = '<li><p>Listening for new SOS alerts...</p></li>';
-                
+
                 const alertsColRef = window.fs.collection(window.db, 'artifacts', window.appId, 'public', 'data', 'sos-alerts');
-                
+
                 // Save the unsubscribe function returned by onSnapshot
                 window.activeAlertsListener = window.fs.onSnapshot(alertsColRef, (querySnapshot) => {
                     if (querySnapshot.empty) {
                         alertsListEl.innerHTML = '<li><p>No active SOS alerts found.</p></li>';
                         return;
                     }
-                    
+
                     alertsListEl.innerHTML = ''; // Clear list
                     let alerts = [];
                     querySnapshot.forEach(doc => {
                         alerts.push(doc.data());
                     });
-                    
+
                     // Sort by timestamp, newest first
                     alerts.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                    
+
                     alerts.forEach(alert => {
                         const alertEl = document.createElement('li');
                         alertEl.className = 'modal-list-item alert-item';
                         const alertTime = new Date(alert.timestamp).toLocaleString('en-IN');
-                        
+
                         alertEl.innerHTML = `
                             <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
                             <div class="details">
@@ -6207,17 +6387,17 @@
                         `;
                         alertsListEl.appendChild(alertEl);
                     });
-                    
+
                 }, (error) => {
                     console.error("Error listening to active alerts:", error);
                     alertsListEl.innerHTML = `<li><p>Error loading alerts: ${error.message}</p></li>`;
                 });
             };
-            
+
             // --- Add listeners to the buttons that open these modals ---
             const viewRideRequestsBtn = document.getElementById('view-ride-requests-btn');
             const rideRequestsModal = document.getElementById('ride-requests-modal');
-            
+
             if (viewRideRequestsBtn && rideRequestsModal) {
                 viewRideRequestsBtn.addEventListener('click', () => {
                     rideRequestsModal.classList.add('active');
@@ -6227,7 +6407,7 @@
 
             const viewActiveAlertsBtn = document.getElementById('view-active-alerts-btn');
             const activeAlertsModal = document.getElementById('active-alerts-modal');
-            
+
             if (viewActiveAlertsBtn && activeAlertsModal) {
                 viewActiveAlertsBtn.addEventListener('click', () => {
                     activeAlertsModal.classList.add('active');
@@ -6238,191 +6418,3 @@
 
         }); // --- End of DOMContentLoaded ---
     </script>
-
-     <!-- footer -->
-<footer
-    style="background-color: var(--dark-bg); color: var(--light-text); padding: 50px 0; font-family: 'Poppins', sans-serif;">
-    <div
-        style="max-width: 1200px; margin: auto; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 40px; padding: 0 20px;">
-
-        <div class="footer-section">
-            <h3
-                style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.5em; display: flex; align-items: center;">
-                <span style="margin-right: 10px;">🚦</span> Road Safety Club
-            </h3>
-            <p style="line-height: 1.6;">
-                Our mission is to empower everyone with the knowledge to drive and walk safely. Join us in making
-                roads safer
-                for all!
-            </p>
-
-            <button onclick="window.scrollTo({top:0, behavior:'smooth'});" class="back-to-top-btn"
-                style="margin-top: 25px; padding: 12px 25px; background-color: var(--accent-color); border: none; color: var(--dark-bg); font-weight: 700; cursor: pointer; border-radius: 8px; transition: all 0.3s ease; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                ↑ Zoom Back Up!
-            </button>
-        </div>
-
-        <div class="footer-section">
-            <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">📞 Connect With Us</h3>
-            <ul style="list-style: none; padding: 0; line-height: 2;">
-                <li><a href="mailto:info@roadsafetyclub.com" class="footer-link email-link">info@roadsafetyclub.com</a>
-                </li>
-            </ul>
-
-            <h4 style="color: var(--light-text); margin-top: 15px; margin-bottom: 5px; font-weight: 600;">Team
-                Contacts:</h4>
-            <ul style="list-style: none; padding: 0; line-height: 1.8;">
-                <li><a href="tel:9996445592" class="footer-link contact-list-link"><strong>Vivek Yadav:</strong>
-                        9996445592</a>
-                </li>
-                <li><a href="tel:9251399133" class="footer-link contact-list-link"><strong>Shri ji
-                            Aggarwal:</strong>
-                        9457057473</a></li>
-                <li><a href="tel:9389864319" class="footer-link contact-list-link"><strong>Shreya
-                            Chaudhary:</strong>
-                        9389864319</a></li>
-                <li><a href="tel:7056123205" class="footer-link contact-list-link"><strong>Ekta Pannu:</strong>
-                        7056123205</a>
-                </li>
-                <li><a href="tel:9457057473" class="footer-link contact-list-link"><strong>Khush Raghav:</strong>
-                        9251399133</a>
-                </li>
-            </ul>
-        </div>
-
-        <div class="footer-section">
-            <h3 style="color: var(--accent-color); margin-bottom: 20px; font-size: 1.2em;">🔗 Quick Resources</h3>
-            <ul style="list-style: none; padding: 0; line-height: 2;">
-                <!-- This is the updated link -->
-                <li><a href="Road-safety-handbook.pdf" class="footer-link">Traffic Rules Handbook</a></li>
-                <li><a href="/events" class="footer-link">Upcoming Safety Events</a></li>
-                <li><a href="/blog" class="footer-link">Safety Blog</a></li>
-                <li><a href="https://docs.google.com/forms/d/e/1FAIpQLSf4sZdUmq6lhWxHyZ9yFuACp7wRLufzcB2VzmCBoVyg7qvn7w/viewform"
-                        class="footer-link">Join Our Volunteer Team</a></li>
-            </ul>
-
-            <div style="margin-top: 20px;">
-                <a href="#" class="social-icon" aria-label="Follow us on World Wide Web">🌐</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Facebook">📘</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Twitter">🐦</a>
-                <a href="#" class="social-icon" aria-label="Follow us on Instagram">📸</a>
-            </div>
-        </div>
-    </div>
-
-    <div style="text-align: center; padding-top: 25px; border-top: 1px solid var(--border-color); margin-top: 50px;">
-        <p>&copy; 2025 Road Safety Club. Drive Smart, Live Safe.</p>
-    </div>
-
-    <div id="cursor-wrapper" class="cursor-wrapper">
-        <div class="single-segment">
-            <div class="segment-color red"></div>
-            <div class="segment-color yellow"></div>
-            <div class="segment-color green"></div>
-        </div>
-    </div>
-    <style>
-        /* CSS Variables for easy color changes */
-        :root {
-            --dark-bg: #1a1a1a;
-            --light-text: #fff;
-            --accent-color: #ffcc00;
-            /* Yellow */
-            --accent-hover: #e6b800;
-            --border-color: #444;
-        }
-
-        footer {
-            /* This ensures the font-family from the inline style is the starting point */
-            font-family: 'Poppins', Arial, sans-serif !important;
-        }
-
-        .footer-section {
-            flex: 1;
-            min-width: 280px;
-            margin-bottom: 20px;
-        }
-
-        /* General Link Styling */
-        .footer-link {
-            color: var(--light-text);
-            text-decoration: none;
-            transition: color 0.3s, transform 0.3s;
-            display: inline-block;
-        }
-
-        .footer-link:hover {
-            color: var(--accent-color);
-            transform: translateX(5px);
-            /* Subtle shift */
-        }
-
-        /* Team Contact List specific styling - removes the phone icon for this block */
-        .contact-list-link {
-            padding-left: 20px;
-            /* Indent slightly for visual hierarchy */
-        }
-
-        /* Social Icon Animation */
-        .social-icon {
-            color: var(--light-text);
-            font-size: 24px;
-            margin-right: 15px;
-            /* Use margin-right for spacing */
-            display: inline-block;
-            transition: transform 0.3s, color 0.3s;
-            text-decoration: none;
-        }
-
-        .social-icon:hover {
-            color: var(--accent-color);
-            transform: translateY(-5px) scale(1.1);
-            /* Lift and enlarge */
-        }
-
-        /* Back to Top Button hover */
-        .back-to-top-btn:hover {
-            background-color: var(--accent-hover);
-            transform: translateY(-3px) scale(1.02);
-            /* Lift and slightly enlarge */
-            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Clear focus state for accessibility */
-        .footer-link:focus,
-        .social-icon:focus,
-        .back-to-top-btn:focus {
-            outline: 2px solid var(--accent-color);
-            outline-offset: 3px;
-        }
-
-        /* Specific Link Icons (A friendlier touch) - Applied only to General/Email links */
-        .phone-link::before {
-            content: '📞 ';
-            color: var(--accent-color);
-        }
-
-        .email-link::before {
-            content: '📧 ';
-            color: var(--accent-color);
-        }
-
-    </style>
-    
-</footer>
-</body>
-
-</html>
-
-</body>
-
-</html>
-
-
-
-
-
-
-
-
-
