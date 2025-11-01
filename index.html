@@ -1392,6 +1392,20 @@
             left: 0;
         }
 
+        /* --- NEW: Fix for dropdown hover gap --- */
+        /* Add extra padding to the bottom of dropdown triggers to bridge the gap */
+        .nav-links li.dropdown > a {
+            /* This adds 10px of padding to the existing 0.5em to cover the menu's margin-top */
+            padding-bottom: calc(0.5em + 10px);
+        }
+
+        /* Adjust the underline position to account for the new padding */
+        /* This rule must come AFTER the .nav-links a::after rule to override it */
+        .nav-links li.dropdown > a::after {
+            bottom: 10px; /* This moves it up from the bottom of the new padding to sit under the text */
+        }
+        /* --- END NEW --- */
+
         /* --- NEW: Disabled Nav Link Style --- */
         .nav-links a.disabled {
             color: #888 !important;
@@ -6723,3 +6737,4 @@
 
         }); // --- End of DOMContentLoaded ---
     </script>
+
