@@ -155,13 +155,14 @@
                 if (!womenShieldLink) return;
 
                 // Check auth status *without* relying on 'user' param from onAuthStateChanged
-                const isLoggedIn = window.auth.currentUser && !window.auth.currentUser.isAnonymous;
+                // --- FIX: Removed '!window.auth.currentUser.isAnonymous' ---
+                const isLoggedIn = window.auth.currentUser;
                 const shieldActive = window.currentUserData?.womenShieldActive === true;
 
                 if (isLoggedIn && shieldActive) {
                     // User is logged in AND shield is active
                     womenShieldLink.classList.remove('disabled');
-                    womenShieldLink.classList.add('women-shield-blinking'); 
+                    womenShieldLink.classList.add('women-shield-blinking');
                 } else {
                     // User is logged out OR shield is not active
                     womenShieldLink.classList.add('disabled');
@@ -204,6 +205,144 @@
             const referralCodeInput = document.getElementById('referral-code');
             const referralCopyBtn = document.getElementById('referral-copy-btn');
             // --- END NEW ---
+
+
+            // --- NEW: Central UI Update Function ---
+            const updateCommunityView = () => {
+                // This function assumes window.auth.currentUser and window.currentUserData are up-to-date.
+
+                const user = window.auth.currentUser;
+                const userData = window.currentUserData || {};
+                const userRole = userData.role || 'unknown';
+                let userName;
+
+                // Get name based on role
+                if (userRole === 'driver') userName = userData.name || (user ? formatEmailAsName(user.email) : 'Guest');
+                else if (userRole === 'traveler') userName = userData.name || (user ? formatEmailAsName(user.email) : 'Guest');
+                else if (userRole === 'emergency') userName = userData.operatorName || (user ? formatEmailAsName(user.email) : 'Guest');
+                else userName = (user && user.isAnonymous) ? 'Guest' : (user ? formatEmailAsName(user.email) : 'Guest'); // No role yet or anonymous
+
+                const photoUrl = userData.photoUrl;
+
+                // --- NEW FIX: Check if gender is missing for an existing user ---
+                const isProfileIncomplete = (userRole !== 'guest' && userRole !== 'unknown' && typeof userData.gender === 'undefined');
+
+                // --- Update Nav User Photo & Dropdown ---
+                if (navUserPhoto) {
+                    if (photoUrl) {
+                        navUserPhoto.src = photoUrl;
+                    } else {
+                        let initial = 'G'; // Default 'Guest'
+                        if (userName) {
+                            initial = userName.charAt(0).toUpperCase();
+                        }
+                        navUserPhoto.src = `https://placehold.co/40x40/ccc/eee?text=${initial}`;
+                    }
+                }
+
+                let userPhone = userData.phone || (user && user.isAnonymous ? 'Anonymous Guest' : 'No contact info');
+                if (profileDropdownName) profileDropdownName.textContent = userName;
+                if (profileDropdownContact) profileDropdownContact.textContent = userPhone;
+
+                // --- Update Referral Code ---
+                if (referralCodeInput) {
+                    if (window.currentUserId) {
+                        referralCodeInput.value = `SR-${window.currentUserId.substring(0, 6).toUpperCase()}`;
+                    } else {
+                        referralCodeInput.value = 'LOGIN-TO-SEE-CODE';
+                    }
+                }
+
+                // --- Update Women Shield Status ---
+                updateWomenShieldStatus();
+
+                // --- HIDE ALL ROLE-SPECIFIC ELEMENTS FIRST ---
+                if (travelerActions) travelerActions.style.display = 'none';
+                if (driverActions) driverActions.style.display = 'none';
+                if (emergencyActions) emergencyActions.style.display = 'none';
+                if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'none';
+
+                if (user && !user.isAnonymous && (userRole === 'driver' || userRole === 'traveler' || userRole === 'emergency') && !isProfileIncomplete) {
+                    // User is logged in AND has a role AND profile is complete
+                    if (communityLoginPrompt) communityLoginPrompt.style.display = 'none';
+                    if (communityRegisterView) communityRegisterView.style.display = 'none';
+                    if (communityProfileView) communityProfileView.style.display = 'block';
+
+                    if (communityProfileName) communityProfileName.textContent = userName;
+                    if (communityProfileView) communityProfileView.className = `profile-view-${userRole}`;
+                    if (navUserInfo) navUserInfo.className = `dropdown profile-role-${userRole}`;
+
+                    // --- NEW: Show correct action buttons ---
+                    if (userRole === 'traveler') {
+                        if (travelerActions) travelerActions.style.display = 'flex';
+                    } else if (userRole === 'driver') {
+                        if (driverActions) driverActions.style.display = 'flex';
+                        if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'flex';
+                    } else if (userRole === 'emergency') {
+                        if (emergencyActions) emergencyActions.style.display = 'flex';
+                        if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'flex';
+                    }
+
+                    // --- NEW: Set On Duty Toggle State ---
+                    if (onDutyToggle) {
+                        const onDuty = window.currentUserData.onDuty || false;
+                        onDutyToggle.checked = onDuty;
+                        onDutyStatusText.textContent = onDuty ? 'On Duty' : 'Off Duty';
+                        onDutyStatusText.className = onDuty ? 'on-duty' : 'off-duty';
+
+                        // --- NEW: Add event listener for duty toggle ---
+                        // Remove old listener to avoid duplicates, then add new one
+                        const newOnDutyToggle = onDutyToggle.cloneNode(true);
+                        onDutyToggle.parentNode.replaceChild(newOnDutyToggle, onDutyToggle);
+
+                        newOnDutyToggle.addEventListener('change', async () => {
+                            const isChecked = newOnDutyToggle.checked;
+                            onDutyStatusText.textContent = isChecked ? 'On Duty' : 'Off Duty';
+                            onDutyStatusText.className = isChecked ? 'on-duty' : 'off-duty';
+
+                            try {
+                                const userDocRef = doc(db, 'artifacts', appId, 'users', window.currentUserId);
+                                await updateDoc(userDocRef, { onDuty: isChecked });
+                                window.currentUserData.onDuty = isChecked; // Update local state
+                                // Use the global showAlert
+                                window.showAlert('Status Updated', `You are now ${isChecked ? 'On Duty' : 'Off Duty'}.`, 'success');
+                            } catch (error) {
+                                console.error("Error updating duty status:", error);
+                                // Use the global showAlert
+                                window.showAlert('Update Failed', 'Could not update your status. Please try again.', 'error');
+                                // Revert UI on failure
+                                newOnDutyToggle.checked = !isChecked;
+                                onDutyStatusText.textContent = !isChecked ? 'On Duty' : 'Off Duty';
+                                onDutyStatusText.className = !isChecked ? 'on-duty' : 'off-duty';
+                            }
+                        });
+                        // --- END NEW ---
+                    }
+
+                } else if (user) {
+                    // User is logged in but has NO role (e.g., 'unknown' or 'guest')
+                    // OR user HAS a role but is missing gender (isProfileIncomplete)
+                    if (communityLoginPrompt) communityLoginPrompt.style.display = 'none';
+                    if (communityRegisterView) communityRegisterView.style.display = 'block';
+                    if (communityProfileView) communityProfileView.style.display = 'none';
+                    if (navUserInfo) navUserInfo.className = `dropdown profile-role-${userRole}`;
+
+                    if (isProfileIncomplete) {
+                        if (communityRegisterTitle) communityRegisterTitle.innerHTML = '<i class="fas fa-user-edit"></i> Update Your Profile';
+                        if (communityRegisterSubtitle) communityRegisterSubtitle.textContent = 'Please update your profile by selecting your role and gender to continue.';
+                    } else {
+                        if (communityRegisterTitle) communityRegisterTitle.innerHTML = '<i class="fas fa-user-plus"></i> Complete Your Profile';
+                        if (communityRegisterSubtitle) communityRegisterSubtitle.textContent = 'You are logged in. Please select your role in the community to continue.';
+                    }
+                } else {
+                    // User is signed out
+                    if (communityLoginPrompt) communityLoginPrompt.style.display = 'block';
+                    if (communityRegisterView) communityRegisterView.style.display = 'none';
+                    if (communityProfileView) communityProfileView.style.display = 'none';
+                    if (communityProfileView) communityProfileView.className = '';
+                }
+            };
+            // --- END NEW Central UI Update Function ---
 
 
             // Listen for authentication state changes (login/logout)
@@ -313,16 +452,11 @@
 
                         // --- NEW: Populate Profile Dropdown ---
                         // --- FIX 3: This code is now safe because userData is always an object ---
-                        let userPhone = userData.phone || (user.isAnonymous ? 'Anonymous Guest' : 'No contact info');
-                        if (profileDropdownName) profileDropdownName.textContent = userName;
-                        if (profileDropdownContact) profileDropdownContact.textContent = userPhone;
+                        // --- REMOVED: All profile/referral/photo logic moved to updateCommunityView() ---
                         // --- END NEW ---
 
                         // --- NEW: Populate Referral Code ---
-                        if (referralCodeInput) {
-                            // Generate a simple code from the user's ID
-                            referralCodeInput.value = `SR-${userId.substring(0, 6).toUpperCase()}`;
-                        }
+                        // --- REMOVED: All profile/referral/photo logic moved to updateCommunityView() ---
                         // --- END NEW ---
 
                     } catch (error) {
@@ -331,110 +465,25 @@
                     }
 
                     // --- NEW: Populate Profile Dropdown ---
-                    if (navUserPhoto) {
-                        if (photoUrl) {
-                            navUserPhoto.src = photoUrl;
-                        } else {
-                            let initial = 'G'; // Default 'Guest'
-                            if (userName) {
-                                initial = userName.charAt(0).toUpperCase();
-                            }
-                            // Use placeholder service to generate an initial image
-                            navUserPhoto.src = `https://placehold.co/40x40/ccc/eee?text=${initial}`;
-                        }
-                    }
+                    // --- REMOVED: All profile/referral/photo logic moved to updateCommunityView() ---
                     // --- END NEW LOGIC ---
 
                     // --- NEW: Call helper function to set Women Shield status ---
-                    updateWomenShieldStatus();
+                    // --- REMOVED: updateWomenShieldStatus(); ---
                     // --- END NEW ---
 
+                    // --- CALL THE NEW CENTRAL UI UPDATE FUNCTION ---
+                    updateCommunityView();
+                    // --- END CALL ---
+
                     // --- NEW LOGIC TO SHOW CORRECT COMMUNITY VIEW ---
-                    // --- FIX 2: These variables are now defined and this block will work ---
                     // --- HIDE ALL ROLE-SPECIFIC ELEMENTS FIRST ---
-                    if (travelerActions) travelerActions.style.display = 'none';
-                    if (driverActions) driverActions.style.display = 'none';
-                    if (emergencyActions) emergencyActions.style.display = 'none';
-                    if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'none';
-
-                    // --- MODIFIED: Added check for 'isProfileIncomplete' ---
-                    if ( (userRole === 'driver' || userRole === 'traveler' || userRole === 'emergency') && !isProfileIncomplete ) {
-                        // User is logged in AND has a role AND profile is complete
-                        communityLoginPrompt.style.display = 'none';
-                        communityRegisterView.style.display = 'none';
-                        communityProfileView.style.display = 'block';
-
-                        communityProfileName.textContent = userName;
-                        communityProfileView.className = `profile-view-${userRole}`;
-                        if (navUserInfo) navUserInfo.className = `dropdown profile-role-${userRole}`; // <!-- ADDED LINE -->
-
-                        // --- NEW: Show correct action buttons ---
-                        if (userRole === 'traveler') {
-                            if (travelerActions) travelerActions.style.display = 'flex';
-                        } else if (userRole === 'driver') {
-                            if (driverActions) driverActions.style.display = 'flex';
-                            if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'flex';
-                        } else if (userRole === 'emergency') {
-                            if (emergencyActions) emergencyActions.style.display = 'flex';
-                            if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'flex';
-                        }
-
-                        // --- NEW: Set On Duty Toggle State ---
-                        if (onDutyToggle) {
-                            const onDuty = window.currentUserData.onDuty || false;
-                            onDutyToggle.checked = onDuty;
-                            onDutyStatusText.textContent = onDuty ? 'On Duty' : 'Off Duty';
-                            onDutyStatusText.className = onDuty ? 'on-duty' : 'off-duty';
-
-                            // --- NEW: Add event listener for duty toggle ---
-                            // Remove old listener to avoid duplicates, then add new one
-                            const newOnDutyToggle = onDutyToggle.cloneNode(true);
-                            onDutyToggle.parentNode.replaceChild(newOnDutyToggle, onDutyToggle);
-
-                            newOnDutyToggle.addEventListener('change', async () => {
-                                const isChecked = newOnDutyToggle.checked;
-                                onDutyStatusText.textContent = isChecked ? 'On Duty' : 'Off Duty';
-                                onDutyStatusText.className = isChecked ? 'on-duty' : 'off-duty';
-
-                                try {
-                                    const userDocRef = doc(db, 'artifacts', appId, 'users', window.currentUserId);
-                                    await updateDoc(userDocRef, { onDuty: isChecked });
-                                    window.currentUserData.onDuty = isChecked; // Update local state
-                                    // Use the global showAlert
-                                    window.showAlert('Status Updated', `You are now ${isChecked ? 'On Duty' : 'Off Duty'}.`, 'success');
-                                } catch (error) {
-                                    console.error("Error updating duty status:", error);
-                                    // Use the global showAlert
-                                    window.showAlert('Update Failed', 'Could not update your status. Please try again.', 'error');
-                                    // Revert UI on failure
-                                    newOnDutyToggle.checked = !isChecked;
-                                    onDutyStatusText.textContent = !isChecked ? 'On Duty' : 'Off Duty';
-                                    onDutyStatusText.className = !isChecked ? 'on-duty' : 'off-duty';
-                                }
-                            });
-                            // --- END NEW ---
-                        }
-                        // --- END NEW ---
-
-                    } else {
-                        // User is logged in but has NO role (e.g., 'unknown' or 'guest')
-                        // OR user HAS a role but is missing gender (isProfileIncomplete)
-                        communityLoginPrompt.style.display = 'none';
-                        communityRegisterView.style.display = 'block'; // Show role selection
-                        communityProfileView.style.display = 'none';
-                        if (navUserInfo) navUserInfo.className = `dropdown profile-role-${userRole}`; // <!-- ADDED LINE -->
-
-                        // Update titles to prompt for profile completion
-                        // --- MODIFIED: Check if profile is incomplete ---
-                        if (isProfileIncomplete) {
-                            communityRegisterTitle.innerHTML = '<i class="fas fa-user-edit"></i> Update Your Profile';
-                            communityRegisterSubtitle.textContent = 'Please update your profile by selecting your role and gender to continue.';
-                        } else {
-                            communityRegisterTitle.innerHTML = '<i class="fas fa-user-plus"></i> Complete Your Profile';
-                            communityRegisterSubtitle.textContent = 'You are logged in. Please select your role in the community to continue.';
-                        }
-                        // --- END MODIFICATION ---
-                    }
+                    // --- ALL LOGIC FROM HERE... ---
+                    // ...
+                    // ...
+                    // ...
+                    // --- ...TO HERE, HAS BEEN MOVED to updateCommunityView() ---
+                    // --- END NEW ---
 
                     // --- NEW: Populate Modals ---
                     if (window.populateWallet) window.populateWallet();
@@ -463,30 +512,28 @@
                     window.currentUserData = {}; // <-- NEW
 
                     // --- NEW: Call helper function to set Women Shield status ---
-                    updateWomenShieldStatus();
+                    // --- REMOVED: updateWomenShieldStatus(); ---
                     // --- END NEW ---
 
                     // --- NEW: Reset Profile Dropdown ---
-                    if (profileDropdownName) profileDropdownName.textContent = 'Guest';
-                    if (profileDropdownContact) profileDropdownContact.textContent = 'Please log in';
+                    // --- REMOVED: All reset logic moved to updateCommunityView() ---
                     // --- END NEW ---
 
                     // --- NEW: Reset Referral Code ---
-                    if (referralCodeInput) referralCodeInput.value = 'LOGIN-TO-SEE-CODE';
+                    // --- REMOVED: All reset logic moved to updateCommunityView() ---
                     // --- END NEW ---
+
+                    // --- CALL THE NEW CENTRAL UI UPDATE FUNCTION ---
+                    updateCommunityView();
+                    // --- END CALL ---
 
                     // --- FIX 2: These variables are now defined and this block will work ---
                     // Show the default "login prompt" view
-                    communityLoginPrompt.style.display = 'block';
-                    communityRegisterView.style.display = 'none';
-                    communityProfileView.style.display = 'none';
-                    communityProfileView.className = '';
+                    // --- REMOVED: All community view logic moved to updateCommunityView() ---
+                    // --- END NEW ---
 
                     // --- NEW: Hide all role-specific elements ---
-                    if (travelerActions) travelerActions.style.display = 'none';
-                    if (driverActions) driverActions.style.display = 'none';
-                    if (emergencyActions) emergencyActions.style.display = 'none';
-                    if (onDutyToggleContainer) onDutyToggleContainer.style.display = 'none';
+                    // --- REMOVED: All community view logic moved to updateCommunityView() ---
                     // --- END NEW ---
 
                     // --- NEW: Clear Modals ---
@@ -836,10 +883,8 @@
                         await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData, { merge: true });
 
                         // --- NEW: Update local data and UI immediately ---
-                        if (window.currentUserData) { // Check if currentUserData exists
-                            window.currentUserData.womenShieldActive = (gender === 'female');
-                        }
-                        updateWomenShieldStatus();
+                        window.currentUserData = { ...window.currentUserData, ...userData }; // <-- MODIFIED: Merge all new data
+                        updateCommunityView(); // <-- MODIFIED: Call central UI update function
                         // --- END NEW ---
 
                         // --- NEW: Reset file and preview ---
@@ -924,10 +969,8 @@
                         await setDoc(doc(db, 'artifacts', appId, 'users', userId), userData, { merge: true });
 
                         // --- NEW: Update local data and UI immediately ---
-                        if (window.currentUserData) { // Check if currentUserData exists
-                            window.currentUserData.womenShieldActive = (gender === 'female');
-                        }
-                        updateWomenShieldStatus();
+                        window.currentUserData = { ...window.currentUserData, ...userData }; // <-- MODIFIED: Merge all new data
+                        updateCommunityView(); // <-- MODIFIED: Call central UI update function
                         // --- END NEW ---
 
                         // --- NEW: Reset file and preview ---
@@ -1017,10 +1060,8 @@
                         await setDoc(doc(db, 'artifacts', appId, 'users', userId), serviceData, { merge: true });
 
                         // --- NEW: Update local data and UI immediately ---
-                        if (window.currentUserData) { // Check if currentUserData exists
-                            window.currentUserData.womenShieldActive = (gender === 'female');
-                        }
-                        updateWomenShieldStatus();
+                        window.currentUserData = { ...window.currentUserData, ...serviceData }; // <-- MODIFIED: Merge all new data
+                        updateCommunityView(); // <-- MODIFIED: Call central UI update function
                         // --- END NEW ---
 
                         // --- NEW: Reset file and preview ---
@@ -1120,16 +1161,28 @@
 
         /* --- NEW: Blinking Animation for Women Shield --- */
         @keyframes blink-animation {
-            0% { opacity: 1; color: var(--accent-color); }
-            50% { opacity: 0.3; color: #f39c12; }
-            100% { opacity: 1; color: var(--accent-color); }
+            0% {
+                opacity: 1;
+                color: var(--accent-color);
+            }
+
+            50% {
+                opacity: 0.3;
+                color: #f39c12;
+            }
+
+            100% {
+                opacity: 1;
+                color: var(--accent-color);
+            }
         }
-        
+
         .nav-links a.women-shield-blinking:not(.disabled) {
             animation: blink-animation 1.5s infinite;
             color: var(--accent-color) !important;
             cursor: pointer;
         }
+
         /* --- END NEW --- */
 
         * {
@@ -1429,16 +1482,18 @@
 
         /* --- NEW: Fix for dropdown hover gap --- */
         /* Add extra padding to the bottom of dropdown triggers to bridge the gap */
-        .nav-links li.dropdown > a {
+        .nav-links li.dropdown>a {
             /* This adds 10px of padding to the existing 0.5em to cover the menu's margin-top */
             padding-bottom: calc(0.5em + 10px);
         }
 
         /* Adjust the underline position to account for the new padding */
         /* This rule must come AFTER the .nav-links a::after rule to override it */
-        .nav-links li.dropdown > a::after {
-            bottom: 10px; /* This moves it up from the bottom of the new padding to sit under the text */
+        .nav-links li.dropdown>a::after {
+            bottom: 10px;
+            /* This moves it up from the bottom of the new padding to sit under the text */
         }
+
         /* --- END NEW --- */
 
         /* --- NEW: Disabled Nav Link Style --- */
@@ -1747,12 +1802,13 @@
         */
 
         /* NEW: Show when parent LI has .active class */
-        .nav-links li.dropdown.active > .dropdown-menu {
+        .nav-links li.dropdown.active>.dropdown-menu {
             display: block;
             opacity: 1;
             transform: translateY(0);
             pointer-events: auto;
         }
+
         /* --- END MODIFICATION --- */
 
 
@@ -1804,8 +1860,9 @@
 
         /* ...but allows it to stay open if JS added .active */
         /* --- MODIFICATION: This rule is now covered by the main .active rule, but let's keep it for specificity --- */
-        .nav-links li.dropdown.active > .dropdown-menu#profile-dropdown-menu.active {
-            display: block !important; /* Keep !important just in case */
+        .nav-links li.dropdown.active>.dropdown-menu#profile-dropdown-menu.active {
+            display: block !important;
+            /* Keep !important just in case */
         }
 
         /* --- END NEW Desktop Dropdown Styles --- */
@@ -4051,15 +4108,16 @@
 
             /* Mobile Dropdowns */
             /* --- NEW: Add caret rotation on mobile --- */
-            .nav-links li.dropdown > a .fa-caret-down {
+            .nav-links li.dropdown>a .fa-caret-down {
                 transition: transform 0.3s ease;
             }
-    
-            .nav-links li.dropdown.active > a .fa-caret-down {
+
+            .nav-links li.dropdown.active>a .fa-caret-down {
                 transform: rotate(180deg);
             }
+
             /* --- END NEW --- */
-            
+
             .nav-links li.dropdown .dropdown-menu {
                 display: none;
                 /* Start hidden */
@@ -4376,16 +4434,17 @@
             </li>
         </ul>
         <!-- === END NEW WRAPPER === -->
-    </div>
+        </div>
 
-    <!-- === NEW: Mobile Menu Toggle Button === -->
-    <button id="mobile-menu-toggle" class="mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
-        <i class="fas fa-bars"></i>
-    </button>
-    <!-- === END NEW === -->
-</nav>
+        <!-- === NEW: Mobile Menu Toggle Button === -->
+        <button id="mobile-menu-toggle" class="mobile-menu-toggle" aria-label="Toggle navigation menu"
+            aria-expanded="false">
+            <i class="fas fa-bars"></i>
+        </button>
+        <!-- === END NEW === -->
+    </nav>
 
-<header id="home">
+    <header id="home">
         <main>
             <h1>Drive Smart. Stay Safe.</h1>
             <p>Your journey is precious. Awareness is your best defense.</p>
@@ -5344,7 +5403,7 @@
             if (profileMenuTrigger && profileMenu) {
                 profileMenuTrigger.addEventListener('click', (e) => {
                     e.stopPropagation(); // Stop click from bubbling to the document
-                    
+
                     const wasActive = profileMenu.classList.contains('active');
 
                     // --- NEW: Close other dropdowns ---
@@ -5352,7 +5411,7 @@
                         li.classList.remove('active');
                     });
                     // --- END NEW ---
-                    
+
                     if (!wasActive) {
                         profileMenu.classList.add('active'); // Use add, not toggle
                     }
@@ -5363,29 +5422,29 @@
 
             // --- NEW: Click-to-toggle for main nav dropdowns (Desktop) ---
             // Get all dropdown toggles EXCEPT the profile one
-            const mainDropdownLinks = document.querySelectorAll('.nav-links > li.dropdown > a'); 
+            const mainDropdownLinks = document.querySelectorAll('.nav-links > li.dropdown > a');
 
             mainDropdownLinks.forEach(link => {
                 // Check if it's one of the links that should toggle a menu
                 // And it's NOT the profile trigger
                 const parentLi = link.parentElement;
                 if (parentLi.querySelector('.dropdown-menu') && parentLi.id !== 'nav-user-info') {
-                    
+
                     link.addEventListener('click', (e) => {
-                        
+
                         // Only run this click-toggle logic on desktop
                         if (window.innerWidth > 992) {
                             e.preventDefault();
                             e.stopPropagation(); // Prevent document click listener from firing immediately
-            
+
                             const wasActive = parentLi.classList.contains('active');
-            
+
                             // Close all *other* dropdowns (including profile)
                             document.querySelectorAll('.nav-links > li.dropdown.active').forEach(li => {
                                 li.classList.remove('active');
                             });
-                             if (profileMenu) profileMenu.classList.remove('active');
-            
+                            if (profileMenu) profileMenu.classList.remove('active');
+
                             // If it wasn't already active, open it
                             if (!wasActive) {
                                 parentLi.classList.add('active');
@@ -5406,7 +5465,7 @@
                         profileMenu.classList.remove('active');
                     }
                 }
-            
+
                 // Close Main Nav Dropdowns
                 document.querySelectorAll('.nav-links > li.dropdown.active').forEach(li => {
                     // Check if the click was outside this dropdown AND it's not the profile one
@@ -6868,7 +6927,3 @@
 
         }); // --- End of DOMContentLoaded ---
     </script>
-
-
-
-
